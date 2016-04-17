@@ -110,11 +110,38 @@ function tanggal_indonesia($tanggal) {
  * @return string String query
  */
 function _db_to_query($object) {
-	if (!is_null($fValue)) {
-		return "'" . mysqli_escape_string($mysql, $fValue) . "'";
-	} else {
+	global $mysqli;
+	
+	if (is_null($object)) {
 		return 'NULL';
+	} else {
+		return "'" . mysqli_escape_string($mysqli, $object) . "'";
 	}
+}
+/**
+ * Generate query SELECT FROM
+ * @param string $tableName Nama tabel
+ * @param array $condition Array asosiatif (field =&gt; nilai) kondisi where. NULL untuk semua kondisi
+ * @param string $fields Field yang akan diselect. Default: '*'
+ * @return string Query hasil generate
+ * @author Nur Hardyanto
+ */
+function db_select($tableName, $condition = null, $fields = '*') {
+	$queryString = "SELECT ".$fields." FROM ".$tableName;
+	if (!empty($condition)) {
+		$queryString .= ' WHERE ';
+		if (is_array($condition)) {
+			foreach ($condition as $fName => $fValue) {
+				$queryString .= '(' . $fName . '=';
+				$queryString .= ($fValue) . ") AND ";
+			}
+			$qLength = strlen($queryString);
+			$queryString = substr($queryString, 0, $qLength-5);
+		} else if (is_string($condition)) {
+			$queryString .= $condition;
+		}
+	}
+	return $queryString;
 }
 /**
  * Generate query INSERT INTO
@@ -132,7 +159,7 @@ function db_insert_into($tableName, $fields = null) {
 
 		foreach ($fields as $fName => $fValue) {
 			$keys .= $fName.',';
-			$values .= _db_to_query($fValue).",";
+			$values .= ($fValue).",";
 		}
 		$keys = trim($keys, ',');
 		$values = trim($values, ',');
@@ -155,7 +182,7 @@ function db_update($tableName, $fields, $conditions = null) {
 	$queryString = "UPDATE ".$tableName. " SET ";
 
 	foreach ($fields as $fName => $fValue) {
-		$queryString .= $fName .'='. _db_to_query($fValue) . ",";
+		$queryString .= $fName .'='. ($fValue) . ",";
 	}
 	$queryString = trim($queryString, ',');
 
@@ -164,7 +191,7 @@ function db_update($tableName, $fields, $conditions = null) {
 		if (is_array($conditions)) {
 			foreach ($conditions as $fName => $fValue) {
 				$queryString .= '(' . $fName . '=';
-				$queryString .= _db_to_query($fValue) . ") AND ";
+				$queryString .= ($fValue) . ") AND ";
 			}
 			$qLength = strlen($queryString);
 			$queryString = substr($queryString, 0, $qLength-5);

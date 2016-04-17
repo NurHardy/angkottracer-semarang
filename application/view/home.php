@@ -3,20 +3,69 @@
 		<h1>Angkot Tracer</h1>
 		<small>Ayo naik angkutan umum!</small>
 		<hr>
-		<form class="horizontal-form">
-			<label>Tampilkan rute:</label>
-			<select name="route" class="form-control">
+		<form class="horizontal-form" id="site_nodeselector">
+			<label>Pilih node:</label>
+			<select name="nodeid" class="form-control">
 				<option value="0">- Pilih -</option>
 			</select>
 		</form>
 		<button onclick="return download_json();" class="btn btn-default btn-block">Get Data</button>
+		
+		<hr>
+		<h4>List Simpul</h4>
+		<div class="table-responsive">
+			<table class="table table-striped table-condensed table-hover table-bordered"
+					 id="table_vertex">
+				<thead>
+					<tr>
+						<th>Node</th>
+						<th>Distance</th>
+						<th>Reversible</th>
+						<th>Aksi</th>
+					</tr>
+				</thead>
+				<tbody>
+					
+				</tbody>
+			</table>
+		</div>
+		<form action="#" id="site_nodeform">
+			<label for="site_nodedest_txt">Destination Node</label>
+			<select name="id_node" class="form-control"></select>
+			<label for="site_nodedist_txt">Distance</label>
+			<input type="text" name="node_dist" value="" id="site_nodedist_txt" class="form-control"/>
+			<input type="checkbox" name="node_reversible" id="site_reversible_chk"/>
+			<label for="site_reversible_chk">Reversible</label>
+			
+		</form>
 	</div>
 	<div id="site_googlemaps"></div>
 </div>
 <script>
 var map;
 var activeMarkers = [];
+var labels = 'ABCDEFGHIJKLMNOPQRSTUVWYZ';
+var URL_DATA_AJAX = "<?php echo _base_url('/?p=ajax&mod=data'); ?>";
 
+function focus_node(nodeId) { // nodeId di database
+	_ajax_send({
+		verb: 'node.getbyid',
+		id: nodeId
+	}, function(jsonData){
+		map.panTo(jsonData.nodedata.position);
+		$("#table_vertex tbody").empty();
+
+		var vertexCount = jsonData.vertexes.length;
+		var ctr; var reversibleLabel;
+		for (ctr = 0; ctr < vertexCount; ctr++) {
+			reversibleLabel = (jsonData.vertexes[ctr].reversible?"Yes":"No");
+			$("#table_vertex tbody").append(
+					'<tr><td>'+jsonData.vertexes[ctr].dest+
+					'</td><td>'+jsonData.vertexes[ctr].distance+
+					'</td><td>'+reversibleLabel+'</td><td>edit hapus</td></tr>');
+		}
+	}, "Memuat...", URL_DATA_AJAX);
+}
 function clear_markers() {
 	var dLength = activeMarkers.length;
 	var ctr;
@@ -26,23 +75,27 @@ function clear_markers() {
 }
 function download_json() {
 	_ajax_send({
-		verb: 'search'
+		verb: 'node.get'
 	}, function(jsonData){
 		clear_markers();
 		var dLength = jsonData.data.length;
 		var ctr;
 		for (ctr=0; ctr < dLength; ctr++) {
 			activeMarkers.push(new google.maps.Marker({
-				position: {lat: jsonData.data[ctr].lat, lng: jsonData.data[ctr].lng},
+				position: jsonData.data[ctr].position,
 				map: map,
+				label: labels[ctr % 26],
 				title: jsonData.data[ctr].name
 			}));
+			$('#site_nodeselector select[name=nodeid]').append(
+				'<option value="'+(jsonData.data[ctr].id)+'">'+jsonData.data[ctr].name+'</option>');
 		}
-	}, "Mengunduh...", "<?php echo _base_url('/?p=ajax'); ?>");
+	}, "Mengunduh...", URL_DATA_AJAX);
 	return false;
 }
 function init_map() {
 	map = new google.maps.Map(document.getElementById('site_googlemaps'), {
+		streetViewControl: false,
 		zoom: 14,
 		center: {lat: -6.985525006479515, lng: 110.46021435493}
 	});
@@ -69,7 +122,13 @@ function init_map() {
 	});
 
 	flightPath.setMap(map);
+
+	download_json();
+
+	$('#site_nodeselector select[name=nodeid]').change(function(){
+		focus_node($(this).val());
+	});
 }
 </script>
 <script async defer
-	src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCB_Tzs_EZ1exoXELhuq_sOlkqhrifjezw&signed_in=true&callback=init_map"></script>
+	src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCB_Tzs_EZ1exoXELhuq_sOlkqhrifjezw&signed_in=true&callback=init_map&signed_in=false"></script>

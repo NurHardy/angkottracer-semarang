@@ -1,19 +1,25 @@
 <?php
 
-$actionVerb = $_POST['verb'];
-$jsonResponse = array();
+//=============== AJAX FUNCTIONS ==============
+	function generate_error($errorStr) {
+		return array(
+				'status' => 'error',
+				'message' => $errorStr
+		);
+	}
 
-if ($actionVerb == "search") {
-	require(APP_PATH."/controller/main/a-star.php");
-} else {
-	echo generate_error('Unrecognized verb.');
-}
+//=============== AJAX RUNTIME ==============
+	$jsonResponse = array();
+	$moduleName = $_GET['mod'];
+	
+	if ($moduleName == "data") {
+		require(APP_PATH."/controller/ajax/data.php");
+	} else {
+		echo generate_error('Unrecognized module.');
+	}
 
-echo json_encode($jsonResponse);
-
-function generate_error($errorStr) {
-	return array(
-		'status' => 'error',
-		'message' => $errorStr
-	);
-}
+	if (!empty($jsonResponse)) {
+		header('Content-Type: application/json');
+		echo json_encode($jsonResponse);
+	}
+	

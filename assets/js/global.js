@@ -11,8 +11,8 @@ function goToTop() {
 }
 
 function show_overlay(_msg) {
-	if (_msg === '') {$("#site_ov_msg").html('Sedang memproses... Mohon tunggu...');}
-	else $("#site_ov_msg").html(_msg);
+	if (_msg === '') {$("#site_ov_msg_process").html('Sedang memproses... Mohon tunggu...');}
+	else $("#site_ov_msg_process").html(_msg);
 	$("#site_overlay_process").show();
 }
 function hide_overlay() {
