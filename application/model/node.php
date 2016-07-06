@@ -43,7 +43,7 @@ function get_node_by_id($nodeId) {
  * Simpan record node
  * @param array $nodeData Data node, field sesuai database
  * @param integer $nodeId ID node. -1 untuk insert
- * @return boolean TRUE jika berhasil, sebaliknya FALSE
+ * @return int|NULL id node baru jika berhasil, sebaliknya NULL
  */
 function save_node($nodeData, $nodeId = -1) {
 	global $mysqli;
@@ -62,5 +62,12 @@ function save_node($nodeData, $nodeId = -1) {
 	}
 	
 	$queryResult = mysqli_query($mysqli, $saveQuery);
-	return $queryResult;
+	if ($queryResult) {
+		if ($nodeId > 0) {
+			return $nodeId;
+		} else {
+			$newId = mysqli_insert_id($mysqli);
+			return $newId;
+		}
+	} else return null;
 }

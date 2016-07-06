@@ -9,6 +9,10 @@ function _complete_url($_path) {
 	return "http://localhost"._base_url($_path);
 }
 
+function htmlview($filePath, $data = null) {
+	require APP_PATH."/view/".$filePath;
+}
+
 function template($filePath, $data = null) {
 	require APP_PATH."/view/skin/header.php";
 	require APP_PATH."/view/".$filePath;
@@ -118,6 +122,25 @@ function _db_to_query($object) {
 		return "'" . mysqli_escape_string($mysqli, $object) . "'";
 	}
 }
+
+/**
+ * Generate query fielda dari array (a AS x, b AS y)
+ * @param array $fieldArray Array asosiatif dari field yang ingin diquerykan (x =&gt; A, y =&gt; B)
+ * @return string Query field hasil generate
+ */
+function _gen_fields($fieldArray) {
+	$fieldQuery = "";
+	
+	if (!empty($fieldArray) && is_array($fieldArray)) {
+		foreach ($fieldArray as $fName => $fValue) {
+			$fieldQuery .= $fValue;
+			if (is_string($fName)) $fieldQuery .= ' AS '.$fName;
+			$fieldQuery .= ',';
+		}
+		$fieldQuery = trim($fieldQuery, ',');
+	}
+	return $fieldQuery;
+}
 /**
  * Generate query SELECT FROM
  * @param string $tableName Nama tabel
@@ -175,6 +198,7 @@ function db_insert_into($tableName, $fields = null) {
  * Generate query UPDATE &lt;table&gt; SET
  * @param string $tableName Nama tabel
  * @param array $fields Array asosiatif dari field-field untuk diupdate
+ * @param string|array $conditions Query WHERE
  * @return string Query hasil generate
  * @author Nur Hardyanto
  */
