@@ -25,6 +25,7 @@
 		var AJAX_REQ_URL = "<?php echo _base_url('/?p=ajax'); ?>";
 		var URL_DATA_AJAX = "<?php echo _base_url('/?p=ajax&mod=data'); ?>";
 		var URL_MODAL = "<?php echo _base_url('/?p=ajax&mod=modal'); ?>";
+		var URL_ALGORITHM_AJAX = "<?php echo _base_url('/?p=ajax&mod=algorithm'); ?>";
 		</script>
 		<script src="<?php echo _base_url('/assets/js/global.js'); ?>"></script>
 	</body>

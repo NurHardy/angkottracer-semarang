@@ -19,6 +19,48 @@
 		return $resultStr;
 	}
 	
+	function latlng_coords_to_mysql($paramCoords) {
+		$resultStr = "";
+		
+		if (empty($paramCoords)) return "NULL";
+		
+		$resultStr = 'LINESTRING(';
+		foreach ($paramCoords as $itemPoint) {
+			$nodeStr = sprintf("%f %f", $itemPoint['lng'], $itemPoint['lat']);
+			$resultStr .= $nodeStr.',';
+		}
+		$resultStr = trim($resultStr, ',');
+		$resultStr .= '),0';
+		return $resultStr;
+	}
+	
+	function mysql_to_latlng_coords($mysqlLineString) {
+		if (empty($mysqlLineString)) return array();
+		// 12345678901
+		// LINESTRING(...)
+		// 0123456789
+		
+		$coordResult = array();
+		$cleanStr = trim($mysqlLineString);
+		
+		// Hilangkan LINESTRING
+		$cleanStr = substr($cleanStr, 10, strlen($mysqlLineString)-11);
+		
+		// Hilangkan kurung
+		$cleanStr = trim($cleanStr, '()');
+		
+		$listVertex = explode(',', $cleanStr);
+		foreach ($listVertex as $itemVertex) {
+			$vertexComp = explode(' ', $itemVertex);
+			$coordResult[] = array(
+				'lng' => floatval($vertexComp[0]),
+				'lat' => floatval($vertexComp[1])
+			);
+		}
+		
+		return $coordResult;
+		
+	}
 	//Source: https://www.geodatasource.com/developers/php
 	/*::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
 	/*::                                                                         :*/

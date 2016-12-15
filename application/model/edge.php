@@ -21,8 +21,13 @@ function get_edges() {
 function get_edge_by_id($idEdge) {
 	global $mysqli;
 
+	$fieldToSelect = _gen_fields(array(
+			0 => '*',
+			1 => 'AsText(polyline) AS polyline_data'
+	));
+	
 	$condition = array('id_edge' => $idEdge);
-	$selectQuery = db_select('edges', $condition);
+	$selectQuery = db_select('edges', $condition, $fieldToSelect);
 	$queryResult = mysqli_query($mysqli, $selectQuery);
 
 	$row = mysqli_fetch_array($queryResult, MYSQLI_ASSOC);
@@ -37,6 +42,7 @@ function get_neighbor_edges($idNode, $joinNode = false) {
 	// Generate subquery, ambil edge yang bertetangga
 	$fieldToSelect = _gen_fields(array(
 			0 => '*',
+			1 => 'AsText(polyline) AS polyline_data',
 			'id_node_adj' => sprintf('CASE WHEN (id_node_from=%d) THEN id_node_dest ELSE id_node_from END',$idNode)
 	));
 	$subCondition = sprintf('(id_node_from=%d) OR (id_node_dest=%d)', $idNode, $idNode);
@@ -99,5 +105,24 @@ function save_edge($edgeData, $edgeId = -1) {
 			$newId = mysqli_insert_id($mysqli);
 			return $newId;
 		}
+	} else return null;
+}
+
+/**
+ * Hapus edge berdasar ID edge
+ * 
+ * @param ID busur $idEdge
+ * @param bool $softDelete [Optional, default = FALSE] Soft delete?
+ * @return bool TRUE jika berhasil, NULL jika gagal
+ */
+function delete_edge($idEdge, $softDelete = false) {
+	global $mysqli;
+	
+	$idEdge = intval($idEdge);
+	$deleteQuery = db_delete_where('edges', array('id_edge' => $idEdge));
+	
+	$queryResult = mysqli_query($mysqli, $deleteQuery);
+	if ($queryResult) {
+		return true;
 	} else return null;
 }

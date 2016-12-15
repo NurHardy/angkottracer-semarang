@@ -6,7 +6,7 @@
 	//-- STATE CONSTANTS ----------------------
 	var STATE_DEFAULT = 0;
 	var STATE_NODESELECTED = 1;
-	var STATE_VERTEXSELECTED = 2;
+	var STATE_EDGESELECTED = 2;
 	var STATE_PLACENODE = 51;
 	var STATE_SELECTNODE = 52;
 
@@ -122,4 +122,25 @@
 			is_processing = false;
 			hide_overlay();
 		});
+	}
+	
+	function loadScripts(sources, callback) {
+		var loadedScripts = 0;
+		var numScripts = 0;
+		// get num of sources
+		for(var src in sources) {
+			numScripts++;
+		}
+		for(var src in sources) {
+			var resource = document.createElement('script'); 
+			resource.onload = function() {
+				if(++loadedScripts >= numScripts) {
+					callback();
+				}
+			};
+			resource.src = sources[src];
+			
+			var script = document.getElementsByTagName('script')[0];
+			script.parentNode.insertBefore(resource, script);
+	    }
 	}

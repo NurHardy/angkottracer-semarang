@@ -45,3 +45,12 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# SLIM Framework
+/rest/vendor/
+/rest/logs/*
+!/rest/logs/README.md
+/rest/templates/cache/*
+!/rest/templates/cache/README.md
+.DS_STORE
+/rest/composer.lock

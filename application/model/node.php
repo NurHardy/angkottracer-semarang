@@ -18,8 +18,9 @@ function get_nodes($idArea = -1) {
 	$listRecord = array();
 	
 	while ($row = mysqli_fetch_array($queryResult, MYSQLI_ASSOC)) {
+		$index = $row['id_node'];
 		$listRecord[$index] = $row;
-		$index++;
+		$listRecord[$index]['neighbors'] = array();
 	}
 	return $listRecord;
 }

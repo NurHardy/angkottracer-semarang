@@ -21,7 +21,7 @@ function init_modal(onSubmitSuccess, onCancel) {
 	});
 }
 function postinit_modal() {
-	$('#modal_form_add_vertex .request-focus').first().focus();
+	$('#modal_form_add_edge .request-focus').first().focus();
 }
 </script>
 <form action="#submit" id="modal_form_add_edge">

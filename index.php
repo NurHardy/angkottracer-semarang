@@ -13,6 +13,13 @@
 	define('FCPATH', str_replace(SELF, '', __FILE__));
 	define('APP_PATH', FCPATH.'/application');
 
+	// System contants
+	define('GOOGLEMAP_APIKEY', "AIzaSyCB_Tzs_EZ1exoXELhuq_sOlkqhrifjezw");
+	
+	// Untuk menghitung waktu eksekusi
+	$timeStart = microtime(true);
+	$queryCount = 0;
+	
 	if (!session_id()) session_start();
 
 	global $mysqli;
@@ -29,10 +36,17 @@
 	} else if ($pageSlug == "dude") {
 		require(APP_PATH."/helper/geo-tools.php");
 		echo kml_coords_to_mysql('');
+	} else if ($pageSlug == "polyline") {		
+		require(APP_PATH."/helper/gmap-tools.php");
+		
+		$locArray = decode_polyline("imq~Fxh|vOvKc_KcRivI");
+		echo "<pre>".print_r($locArray, true)."</pre>";
+	} else if ($pageSlug == "astar") {
+		require(APP_PATH."/controller/main/a-star.php");
+	} else if ($pageSlug == "recalculate") {
+		require(APP_PATH."/controller/tools/recalculate.php");
 	} else {
-		
-		//require_once(APP_PATH."/model/m_barang.php");
-		//$data['listBarangBaru'] = get_list_barang(-1, 1, 8);
-		
 		require(APP_PATH."/controller/home.php");
 	}
+	
+	

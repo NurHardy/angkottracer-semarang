@@ -11,6 +11,7 @@
 	var focusedMarker = null;
 	
 	var activeLines = [];
+	var activeDirLines = [];
 	var labels = 'ABCDEFGHIJKLMNOPQRSTUVWYZ';
 	var iconBase = 'https://maps.google.com/mapfiles/kml/shapes/';
 
@@ -28,6 +29,8 @@
 			$('#site_panel_placenode').show();
 		} else if (currentState == STATE_NODESELECTED) {
 			$('#site_panel_nodeselected').show();
+		} else if (currentState == STATE_EDGESELECTED) {
+			$('#site_panel_selectedge').show();
 		} else if (currentState == STATE_SELECTNODE) {
 			$('#site_panel_selectnode').show();
 		} else { // Default
@@ -80,6 +83,52 @@
 		}
 	}
 	
+	function delete_edge(idNode, idEdge, afterDeleteCallback) {
+		var uConf = confirm('Hapus busur?');
+		if (!uConf) return false;
+		_ajax_send({
+			verb: 'edge.delete',
+			id: idEdge
+		}, function(jsonData){
+			if (typeof(afterDeleteCallback) === 'function') {
+				afterDeleteCallback(jsonData);
+			}
+			focus_node(idNode);
+		}, "Memproses...", URL_DATA_AJAX);
+		
+		return false;
+	}
+	
+	function interpolate_edge(idNode, idEdge) {
+		var uConf = confirm('Interpolasi busur?');
+		if (!uConf) return false;
+		_ajax_send({
+			verb: 'edge.refine',
+			id: idEdge
+		}, function(jsonData){
+			var polylineNodes = [];
+			var nodeCount = jsonData.data.length;
+			var ctr;
+			for (ctr = 0; ctr < nodeCount; ctr++) {
+				//nodeCount.push({lat: , lng: });
+			}
+			//-- Draw polilines in the map
+			activeLines.push(new google.maps.Polyline({
+				path: jsonData.data,
+				geodesic: false,
+				strokeColor: '#162953',
+				strokeOpacity: 1.0,
+				strokeWeight: 2,
+				clickable: false,
+				editable: true,
+				map: map
+			}));
+			//alert(jsonData.data);
+		}, "Memproses...", URL_DATA_AJAX);
+		
+		return false;
+	}
+
 	function focus_node(nodeId) { // nodeId di database
 		_ajax_send({
 			verb: 'node.getbyid',
@@ -94,7 +143,7 @@
 			clear_lines();
 			for (ctr = 0; ctr < edgeCount; ctr++) {
 				activeLines.push(new google.maps.Polyline({
-					path: [jsonData.nodedata.position, jsonData.edges[ctr].position],
+					path: jsonData.edges[ctr].polyline_data, //[jsonData.nodedata.position, jsonData.edges[ctr].position],
 					geodesic: false,
 					strokeColor: '#FF0000',
 					strokeOpacity: 1.0,
@@ -103,11 +152,16 @@
 					map: map
 				}));
 				
-				reversibleLabel = (jsonData.edges[ctr].reversible?"Yes":"No");
+				reversibleLabel = (jsonData.edges[ctr].reversible?"Y":"N");
 				$("#table_edge tbody").append(
-						'<tr><td>'+jsonData.edges[ctr].id+
-						'</td><td>'+jsonData.edges[ctr].distance+
-						'</td><td>'+reversibleLabel+'</td><td>edit hapus</td></tr>');
+						'<tr><td><a href="#" onclick="return focus_node('+jsonData.edges[ctr].id+');" title="'+jsonData.edges[ctr].name+'">'+
+						jsonData.edges[ctr].id+'</a>'+
+						'</td><td>'+jsonData.edges[ctr].distance+' km'+
+						'</td><td>'+reversibleLabel+'</td><td> '+
+						'<a href="#" onclick="return edit_edge('+jsonData.edges[ctr].id_edge+');">edit</a> | ' + 
+						'<a href="#" onclick="return interpolate_edge('+nodeId+','+jsonData.edges[ctr].id_edge+');">interpolate</a> | ' + 
+						'<a href="#" onclick="return delete_edge('+nodeId+','+jsonData.edges[ctr].id_edge+');">hapus</a>' + 
+						'</td></tr>');
 			}
 			
 			currentState = STATE_NODESELECTED;
@@ -125,8 +179,41 @@
 				nodeCursor.setPosition(jsonData.nodedata.position);
 			}
 		}, "Memuat...", URL_DATA_AJAX);
+		return false;
 	}
-	
+	function get_direction() {
+		if (focusedMarker == null) return;
+		
+		currentState = STATE_SELECTNODE;
+		node_selected_callback = function (selectedMarker) {
+			_ajax_send({
+				verb: 'algorithm.astar',
+				id_node_start: selectedMarker.id_node,
+				id_node_end: focusedMarker.id_node
+			}, function(jsonData){
+				clear_dirlines();
+				var edgeCount = jsonData.data.sequence.length;
+				var prevPosition = null;
+				for (ctr = 0; ctr < edgeCount; ctr++) {
+					if (prevPosition != null) {
+						activeDirLines.push(new google.maps.Polyline({
+							path: [prevPosition, jsonData.data.sequence[ctr].position],
+							geodesic: false,
+							strokeColor: '#0000FF',
+							strokeOpacity: 1.0,
+							strokeWeight: 2,
+							clickable: false,
+							map: map
+						}));
+					}
+					prevPosition = jsonData.data.sequence[ctr].position;
+				}
+			}, "Memproses...", URL_ALGORITHM_AJAX);
+			
+			reset_gui();
+		};
+		update_gui();
+	}
 	
 	function new_node() {
 		currentState = STATE_PLACENODE;
@@ -156,7 +243,7 @@
 				$("#table_edge tbody").append(
 						'<tr><td>'+response.data.id+
 						'</td><td>'+response.data.distance+
-						'</td><td>'+reversibleLabel+'</td><td>edit hapus</td></tr>');
+						'</td><td>'+reversibleLabel+'</td><td>edit | <a href="#">hapus</a></td></tr>');
 				
 				hide_modal();
 				reset_gui();
@@ -164,6 +251,49 @@
 				
 			});
 		};
+		update_gui();
+	}
+	
+	function edit_edge(idEdge) {
+		//-- Fetch data
+		_ajax_send({
+			verb: 'edge.getbyid',
+			id: idEdge
+		}, function(jsonData){
+			currentState = STATE_EDGESELECTED;
+			clear_lines();
+			
+			var polyLineData = jsonData.edgedata.polyline_data;
+			polyLineData.unshift(jsonData.edgedata.from.position);
+			polyLineData.push(jsonData.edgedata.dest.position);
+			
+			//-- Draw polylines in the map
+			var editingPolyLine = new google.maps.Polyline({
+				path: polyLineData,
+				geodesic: false,
+				strokeColor: '#162953',
+				strokeOpacity: 1.0,
+				strokeWeight: 2,
+				clickable: false,
+				editable: true,
+				map: map
+			});
+			
+			activeLines.push(editingPolyLine);
+			
+			var deleteMenu;
+			deleteMenu = new DeleteMenu();
+			
+			google.maps.event.addListener(editingPolyLine, 'rightclick', function(e) {
+				// Check if click was on a vertex control point
+				if (e.vertex == undefined) {
+					return;
+				}
+				deleteMenu.open(map, editingPolyLine.getPath(), e.vertex);
+			});
+
+		}, "Memuat...", URL_DATA_AJAX);
+		
 		update_gui();
 	}
 	function clear_markers() {
@@ -182,6 +312,14 @@
 			activeLines.splice(ctr, 1);
 		}
 	}
+	function clear_dirlines() {
+		var dLength = activeDirLines.length;
+		var ctr;
+		for (ctr=dLength-1; ctr >= 0; ctr--) {
+			activeDirLines[ctr].setMap(null);
+			activeDirLines.splice(ctr, 1);
+		}
+	}
 	function download_json() {
 		_ajax_send({
 			verb: 'node.get'
@@ -194,7 +332,7 @@
 					position: jsonData.data[ctr].position,
 					map: map,
 					//label: labels[ctr % 26],
-					title: jsonData.data[ctr].name,
+					title: '#'+jsonData.data[ctr].id+': '+jsonData.data[ctr].name,
 					id_node: jsonData.data[ctr].id,
 					icon: MARKERBASE + 'dot-red.png'
 				});
@@ -207,7 +345,15 @@
 		}, "Mengunduh...", URL_DATA_AJAX);
 		return false;
 	}
+	
 	function init_map() {
+		//-- Load components
+		loadScripts(scripts, function(){
+			download_json();
+			reset_gui();
+		});
+		  
+		//-- Setup map
 		map = new google.maps.Map(document.getElementById('site_googlemaps'), {
 			streetViewControl: false,
 			zoom: 14,
@@ -237,10 +383,6 @@
 		});
 	
 		//flightPath.setMap(map);
-	
-		download_json();
-		reset_gui();
-	
 		$('#site_nodeselector select[name=nodeid]').change(function(){
 			focus_node($(this).val());
 		});

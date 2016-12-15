@@ -225,3 +225,30 @@ function db_update($tableName, $fields, $conditions = null) {
 	}
 	return $queryString;
 }
+
+/**
+ * Generate query DELETE &lt;table&gt; WHERE &lt;condition&gt;.
+ *
+ * @param string $tableName Nama tabel
+ * @param string|array $conditions Query WHERE
+ * @return string Query hasil generate
+ * @author Nur Hardyanto
+ */
+function db_delete_where($tableName, $conditions = null) {
+	$queryString = "DELETE FROM ".$tableName;
+
+	if (!empty($conditions)) {
+		$queryString .= ' WHERE ';
+		if (is_array($conditions)) {
+			foreach ($conditions as $fName => $fValue) {
+				$queryString .= '(' . $fName . '=';
+				$queryString .= ($fValue) . ") AND ";
+			}
+			$qLength = strlen($queryString);
+			$queryString = substr($queryString, 0, $qLength-5);
+		} else if (is_string($conditions)) {
+			$queryString .= $conditions;
+		}
+	}
+	return $queryString;
+}
