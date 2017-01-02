@@ -27,6 +27,9 @@
 		var URL_MODAL = "<?php echo _base_url('/?p=ajax&mod=modal'); ?>";
 		var URL_ALGORITHM_AJAX = "<?php echo _base_url('/?p=ajax&mod=algorithm'); ?>";
 		</script>
-		<script src="<?php echo _base_url('/assets/js/global.js'); ?>"></script>
+		<script src="<?php echo _base_url('/assets/js/bootstrap.min.js'); ?>"></script>
+		<script src="<?php echo _base_url('/assets/js/toastr.min.js'); ?>"></script>
+		<script src="<?php echo _base_url('/assets/js/global.js?v='.APPVER); ?>"></script>
+		<textarea style="display:none;"><?php echo "</body></html>"; ?></textarea>
 	</body>
 </html>

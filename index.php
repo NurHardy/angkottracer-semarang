@@ -13,9 +13,6 @@
 	define('FCPATH', str_replace(SELF, '', __FILE__));
 	define('APP_PATH', FCPATH.'/application');
 
-	// System contants
-	define('GOOGLEMAP_APIKEY', "AIzaSyCB_Tzs_EZ1exoXELhuq_sOlkqhrifjezw");
-	
 	// Untuk menghitung waktu eksekusi
 	$timeStart = microtime(true);
 	$queryCount = 0;

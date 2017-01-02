@@ -72,3 +72,22 @@ function save_node($nodeData, $nodeId = -1) {
 		}
 	} else return null;
 }
+
+/**
+ * Hapus node berdasar ID node
+ *
+ * @param ID busur $idEdge
+ * @param bool $softDelete [Optional, default = FALSE] Soft delete?
+ * @return bool TRUE jika berhasil, NULL jika gagal
+ */
+function delete_node($idNode, $softDelete = false) {
+	global $mysqli;
+
+	$idNode = intval($idNode);
+	$deleteQuery = db_delete_where('nodes', array('id_node' => $idNode));
+
+	$queryResult = mysqli_query($mysqli, $deleteQuery);
+	if ($queryResult) {
+		return true;
+	} else return null;
+}

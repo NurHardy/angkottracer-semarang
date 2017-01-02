@@ -59,6 +59,10 @@ function reconstruct_path(cameFrom, current)
         total_path.append(current)
     return total_path
  */
+
+function do_astar_algorithm() {
+	global $timeStart;
+	
 	//require(APP_PATH."/controller/main/data.php");
 	$idNodeStart = $_POST['id_node_start'];
 	$idNodeGoal = $_POST['id_node_end'];
@@ -87,8 +91,7 @@ function reconstruct_path(cameFrom, current)
 	
 	//--- Validasi input
 	if (!key_exists($idNodeStart, $dbNode) || !key_exists($idNodeGoal, $dbNode)) {
-		echo ("Invalid input!");
-		return;
+		return generate_error("Invalid input!");
 	}
 	
 	
@@ -137,6 +140,7 @@ function reconstruct_path(cameFrom, current)
 				$fromNode = $cameFrom[$fromNode];
 				$finalRoute[] = $fromNode;
 			}
+			
 			$nodeCount = count($finalRoute);
 			$counter = 1;
 			$verboseData .= "------------------ Search finished -----\n";
@@ -153,7 +157,6 @@ function reconstruct_path(cameFrom, current)
 				$verboseData .= "   ".$counter.". ".$dbNode[$finalRoute[$i]]['node_name']."\n";
 				$counter++;
 			}
-			$shortestPathSeq[] = $dbNode[$idNodeGoal];
 			
 			$verboseData .= "----------------------------------------\n";
 			break;
@@ -207,7 +210,9 @@ function reconstruct_path(cameFrom, current)
 	$memoryPeak = memory_get_peak_usage();
 	//dividing with 60 will give the execution time in minutes other wise seconds
 	$execution_time = round(($timeEnd - $timeStart),4);
-	$verboseData .= "\nExecution time: ".$execution_time." seconds. Memory peak: {$memoryPeak} bytes.\n";
+	
+	$benchmarkResult = "Execution time: ".$execution_time." seconds. Memory peak: {$memoryPeak} bytes.";
+	$verboseData .= "\n{$benchmarkResult}\n";
 	
 	$verboseData .= "</pre>";
 	
@@ -215,8 +220,11 @@ function reconstruct_path(cameFrom, current)
 		'status' => 'ok',
 		'data' => array(
 			//'verbose' => $verboseData,
-			'sequence' => $shortestPathSeq
+			'sequence' => $shortestPathSeq,
+			'benchmark' => $benchmarkResult
 		)
 	);
 	
+	return $jsonResponse;
+}
 	

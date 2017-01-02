@@ -1,26 +1,80 @@
 <?php
-	if (!defined('GOOGLEMAP_APIKEY')) return;
+/*
+ * view/home.php
+ * --------------
+ * Main application interface
+ */
+	if (!defined('GOOGLE_APIKEY')) return;
 	
 ?>
-	<style>
-      .delete-menu {
-        position: absolute;
-        background: white;
-        padding: 3px;
-        color: #666;
-        font-weight: bold;
-        border: 1px solid #999;
-        font-family: sans-serif;
-        font-size: 12px;
-        box-shadow: 1px 3px 3px rgba(0, 0, 0, .3);
-        margin-top: -10px;
-        margin-left: 10px;
-        cursor: pointer;
-      }
-      .delete-menu:hover {
-        background: #eee;
-      }
-    </style>
+<style>
+.context-menu {
+	width: 200px;
+	position: absolute;
+	background: white;
+	color: #666;
+	font-weight: bold;
+	border: 1px solid #999;
+	font-family: sans-serif;
+	font-size: 12px;
+	box-shadow: 1px 3px 3px rgba(0, 0, 0, .3);
+	margin-top: -15px;
+	margin-left: 10px;
+	cursor: pointer;
+}
+.context-menu hr {
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
+.context-menu .arrow {
+	position: absolute;
+	left: -5px;
+	top: 8px;
+	width: 0;
+	height: 0;
+	border-top: 5px solid transparent;
+	border-bottom: 5px solid transparent;
+	border-right: 5px solid #fff;
+}
+.context-menu .arrowborder {
+	position: absolute;
+	left: -7px;
+	top: 6px;
+	width: 0;
+	height: 0;
+	border-top: 7px solid transparent;
+	border-bottom: 7px solid transparent;
+	border-right: 7px solid #999;
+}
+
+.context-menu .menu-item {
+	display: block;
+	padding: 5px;
+	text-decoration: none;
+}
+.context-menu .menu-item:hover {
+	background: #eee;
+	text-decoration: none;
+}
+
+#ctxmenu-0-delete, #ctxmenu-0-delete:hover {
+	color: #a94442;
+}
+#site_floatpanel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  background-color: #fff;
+  padding: 7px;
+  border: 1px solid #999;
+  font-family: 'Roboto','sans-serif';
+  line-height: 30px;
+  min-height:32px;
+}
+
+#site_floatpanel .fpanel_item {display:none;}
+</style>
 <div id="site_mainwrapper">
 	<div id="site_leftpanel">
 		<h1>Angkot Tracer</h1>
@@ -46,10 +100,19 @@
 			<p>Pilih salah satu node dengan klik..</p>
 			<button onclick="return reset_gui();" class="btn btn-danger btn-block">Batal</button>
 		</div>
+		<div id="site_panel_movenode" class="site_actionpanel">
+			<p>Drag marker node ke titik yang diinginkan, lalu klik Save.</p>
+			<button onclick="return node_move_commit();" class="btn btn-primary btn-block">
+				<i class="fa fa-floppy-o"></i> Save</button>
+			<button onclick="return reset_gui();" class="btn btn-danger btn-block">
+				<i class="fa fa-times"></i> Batal</button>
+		</div>
 		<div id="site_panel_selectedge" class="site_actionpanel">
 			<p>Ubah polyline pada peta, lalu klik save untuk menyimpan.</p>
-			<button onclick="return submit_edge();" class="btn btn-primary btn-block">Save</button>
-			<button onclick="return reset_gui();" class="btn btn-danger btn-block">Batal</button>
+			<button onclick="return edge_save();" class="btn btn-primary btn-block">
+				<i class="fa fa-floppy-o"></i> Save</button>
+			<button onclick="return reset_gui();" class="btn btn-danger btn-block">
+				<i class="fa fa-times"></i> Batal</button>
 		</div>
 		
 		<hr>
@@ -89,13 +152,62 @@
 		</div><!-- End panel -->
 	</div>
 	<div id="site_googlemaps"></div>
+	
+	<div id="site_floatpanel">
+		<div id="fpanel_home" style="width: 150px;">
+			<a href="#" class="btn btn-default btn-sm btn-block" onclick="new_node(); return false;">
+				<i class="fa fa-plus"></i> Tambah Node</a>
+		</div>
+		<div id="fpanel_edgeedit" class="fpanel_item" style="width: 150px;">
+			<div style="text-align: center; font-size:1.1em;"><b>Edge options:</b></div>
+			<b>Distance</b>: <span id="edgeedit_distance">-</span> km.
+			<hr />
+			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return edge_rename();">
+				<i class="fa fa-pencil"></i> Properties...</a>
+			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return edge_reset();">
+				<i class="fa fa-undo"></i> Reset</a>
+			<div style="text-align:center;">
+				<div class="btn-group" style="margin-top:5px;">
+					<button type="button" class="btn btn-default btn-sm dropdown-toggle"
+							data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						<i class="fa fa-road"></i> Get Direction <span class="caret"></button>
+					<ul class="dropdown-menu" id="requestdirection_opts" style="min-width: 120px;">
+						<li><a href="#reqdir" onclick="return edge_getdir();">From A to B</a></li>
+						<li><a href="#reqdirrev" onclick="return edge_getdir(-1);">From B to A</a></li>
+					</ul>
+				</div>
+			</div>
+			<hr />
+			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return edge_interpolate();">
+				<i class="fa fa-cogs"></i> Interpolate</a>
+			<hr />
+			<a href="#" class="btn btn-danger btn-sm btn-block" onclick="return edge_delete();">
+				<i class="fa fa-trash"></i> Delete</a>
+		</div>
+		<div id="fpanel_nodeedit" class="fpanel_item" style="width: 150px;">
+			<b>Node options:</b><hr />
+			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return node_move();"><i class="fa fa-arrows"></i> Move</a>
+			<a href="#" class="btn btn-danger btn-sm btn-block" onclick="return node_delete();"><i class="fa fa-trash"></i> Delete</a>
+		</div>
+		<div id="fpanel_nodemove" class="fpanel_item" style="width: 150px;">
+			<b>Node options:</b><hr />
+			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return node_move_reset();"><i class="fa fa-undo"></i> Reset</a>
+			<a href="#" class="btn btn-danger btn-sm btn-block" onclick="return node_delete();"><i class="fa fa-trash"></i> Delete</a>
+		</div>
+	</div>
 </div>
 <script>
 var MARKERBASE = "<?php echo _base_url('/assets/images/marker/'); ?>";
 var scripts = <?php echo json_encode(array(
-	'deletemenu' => _base_url('/assets/js/components/gmap-deletemenu.js')
+	'markerclusterer' => _base_url('/assets/js/components/marker-clusterer.js?v='.APPVER),
+	'ctxmenu' => _base_url('/assets/js/components/gmap-contextmenu.js?v='.APPVER),
+	'vertex-mgmt' => _base_url('/assets/js/main/vertex.js?v='.APPVER),
+	'edge-mgmt' => _base_url('/assets/js/main/edge.js?v='.APPVER)
 )); ?>;
 </script>
-<script src="<?php echo _base_url('/assets/js/home.js'); ?>"></script>
+<script src="<?php echo _base_url('/assets/js/home.js?v='.APPVER); ?>"></script>
 <script async defer
-	src="https://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLEMAP_APIKEY; ?>&callback=init_map&signed_in=false"></script>
+	src="https://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLE_APIKEY; ?>&libraries=geometry&callback=init_map"></script>
+	
+<!-- modal dialogs -->
+

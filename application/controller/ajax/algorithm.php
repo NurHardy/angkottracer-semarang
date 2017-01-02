@@ -14,6 +14,9 @@
 	if ($verbObject == "algorithm") {
 		if ($verbMethod == "astar") {
 			require(APP_PATH."/controller/main/a-star.php");
+			$jsonResponse = do_astar_algorithm();
+		} else {
+			$jsonResponse = generate_error('Unrecognized algorithm.');
 		}
 	} else {
 		$jsonResponse = generate_error('Unrecognized verb.');

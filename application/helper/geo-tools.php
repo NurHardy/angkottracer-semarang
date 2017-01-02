@@ -19,6 +19,16 @@
 		return $resultStr;
 	}
 	
+	/**
+	 * Ubah posisi lat, lng ke MySQL geometri (POINT)
+	 * @param float $nodePosLng Longitude
+	 * @param float $nodePosLat Latitude
+	 * @return string String MySQL
+	 */
+	function latlng_point_to_mysql($nodePosLng, $nodePosLat) {
+		return sprintf("POINT(%f %f)", $nodePosLng, $nodePosLat);
+	}
+	
 	function latlng_coords_to_mysql($paramCoords) {
 		$resultStr = "";
 		
@@ -106,6 +116,28 @@
 		}
 	}
 	
+	/**
+	 * Hitung panjang polyline
+	 * 
+	 * @param array $coordsData Array of point (lat:, lng:)
+	 * @param char $unit M = mile, K = kilometer
+	 * @return NULL|float Jarak dalam satuan yang dimaksud, NULL jika error.
+	 */
+	function polyline_length($coordsData, $unit) {
+		if (!is_array($coordsData)) return null;
+		
+		$distance = 0.0; $idxCounter = 0;
+		
+		$pointsCount = count($coordsData);
+		for ($idxCounter = 1; $idxCounter < $pointsCount; $idxCounter++) {
+			$distance += distance(
+					$coordsData[$idxCounter-1]['lat'], $coordsData[$idxCounter-1]['lng'],
+					$coordsData[$idxCounter]['lat'], $coordsData[$idxCounter]['lng'],
+					$unit);
+		}
+		
+		return $distance;
+	}
 	//Example usage:
 	//echo distance(32.9697, -96.80322, 29.46786, -98.53506, "M") . " Miles<br>";
 	//echo distance(32.9697, -96.80322, 29.46786, -98.53506, "K") . " Kilometers<br>";

@@ -1,10 +1,16 @@
 <?php
 
-function get_edges() {
+function get_edges($fetchPolylineData = false) {
 	global $mysqli;
 	
+	$fieldList = array('*');
+	if ($fetchPolylineData)
+		$fieldList['polyline_data'] = 'AsText(polyline)';
+	
+	$fieldToSelect = _gen_fields($fieldList);
+	
 	$condition = array();
-	$selectQuery = db_select('edges', $condition);
+	$selectQuery = db_select('edges', $condition, $fieldToSelect);
 	$queryResult = mysqli_query($mysqli, $selectQuery);
 	
 	if (!$queryResult) return false;
@@ -23,7 +29,7 @@ function get_edge_by_id($idEdge) {
 
 	$fieldToSelect = _gen_fields(array(
 			0 => '*',
-			1 => 'AsText(polyline) AS polyline_data'
+			'polyline_data' => 'AsText(polyline)'
 	));
 	
 	$condition = array('id_edge' => $idEdge);
@@ -42,7 +48,8 @@ function get_neighbor_edges($idNode, $joinNode = false) {
 	// Generate subquery, ambil edge yang bertetangga
 	$fieldToSelect = _gen_fields(array(
 			0 => '*',
-			1 => 'AsText(polyline) AS polyline_data',
+			'polyline_data' => 'AsText(polyline)',
+			'polyline_dir' => sprintf('CASE WHEN (id_node_from=%d) THEN 1 ELSE -1 END',$idNode),
 			'id_node_adj' => sprintf('CASE WHEN (id_node_from=%d) THEN id_node_dest ELSE id_node_from END',$idNode)
 	));
 	$subCondition = sprintf('(id_node_from=%d) OR (id_node_dest=%d)', $idNode, $idNode);

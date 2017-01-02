@@ -9,7 +9,15 @@
 	var STATE_EDGESELECTED = 2;
 	var STATE_PLACENODE = 51;
 	var STATE_SELECTNODE = 52;
+	var STATE_MOVENODE = 53;
 
+	//-- SYSTEM CONSTANTS ---------------------
+	var SYS_MULTIDIR_POLYLINE_COLOR = '#0000FF';
+	var SYS_SINGLEDIR_POLYLINE_COLOR = '#00A2E8';
+	
+	var SYS_SINGLEDIR_POLYLINE_ICONS = [];
+	
+	
 	$(document).ready(function() {
 		
 	});
@@ -29,6 +37,9 @@
 	function ov_change_msg(_msg) {
 		$("#site_ov_msg").html(_msg);
 	}
+	
+	var _on_modal_cancelled = null;
+	
 	function show_modal(fetchUrl, fetchData, onSubmit, onCancel) {
 		$.ajax({
 			type: "POST",
@@ -46,12 +57,13 @@
 				if (typeof(init_modal) === 'function') {
 					init_modal(onSubmit, onCancel);
 				}
-				$('#site_overlay_modal .modal-closebtn').click(function(){
+				_on_modal_cancelled = function(){
 					hide_modal();
 					if (typeof(onCancel) === 'function') {
 						onCancel();
 					}
-				});
+				};
+				$('#site_overlay_modal .modal-closebtn').click(_on_modal_cancelled);
 				$('#site_modal_content').show();
 				if (typeof(postinit_modal) === 'function') {
 					postinit_modal();

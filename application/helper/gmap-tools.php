@@ -33,3 +33,47 @@ function decode_polyline($encoded) {
 	}
 	return $poly;
 }
+
+/**
+ * Encode kompresi polyline milik GoogleMap
+ * 
+ * @param array $points Array of point (lat: , lng:)
+ * @return string Encoded string
+ */
+function encode_polyline ($points) {
+	$encodedString = '';
+	$index = 0;
+	$previous = array(0, 0);
+	foreach ( $points as $itemPoint ) {
+		$number = (float)($itemPoint['lat']);
+		$number = (int)round($number * pow(10, 5));
+		$diff = $number - $previous[$index % 2];
+		$previous[$index % 2] = $number;
+		$number = $diff;
+		$index++;
+		$number = ($number < 0) ? ~($number << 1) : ($number << 1);
+		$chunk = '';
+		while ( $number >= 0x20 ) {
+			$chunk .= chr((0x20 | ($number & 0x1f)) + 63);
+			$number >>= 5;
+		}
+		$chunk .= chr($number + 63);
+		$encodedString .= $chunk;
+		
+		$number = (float)($itemPoint['lng']);
+		$number = (int)round($number * pow(10, 5));
+		$diff = $number - $previous[$index % 2];
+		$previous[$index % 2] = $number;
+		$number = $diff;
+		$index++;
+		$number = ($number < 0) ? ~($number << 1) : ($number << 1);
+		$chunk = '';
+		while ( $number >= 0x20 ) {
+			$chunk .= chr((0x20 | ($number & 0x1f)) + 63);
+			$number >>= 5;
+		}
+		$chunk .= chr($number + 63);
+		$encodedString .= $chunk;
+	}
+	return $encodedString;
+}
