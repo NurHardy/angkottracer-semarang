@@ -141,6 +141,15 @@ function _gen_fields($fieldArray) {
 	}
 	return $fieldQuery;
 }
+
+/**
+ * Generate GeomFromText(...)
+ * @param string $geomText String MySQL geo
+ * @return string Query output
+ */
+function db_geom_from_text($geomText) {
+	return "GeomFromText('".$geomText."')";
+}
 /**
  * Generate query SELECT FROM
  * @param string $tableName Nama tabel

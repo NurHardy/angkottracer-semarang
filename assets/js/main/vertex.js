@@ -21,19 +21,7 @@ function _new_vertex(e) {
 		'name': 'node.add',
 		'data': {'lat': clickLat, 'lng': clickLng}
 	}, function(response){
-		tmpMarker = new google.maps.Marker({
-			position: {'lat': response.data.lat, 'lng': response.data.lng},
-			map: map,
-			title: response.data.name,
-			id_node: response.data.id,
-			icon: MARKERBASE + 'dot-red.png'
-		});
-		
-		activeMarkers.push(tmpMarker);
-		google.maps.event.addListener(tmpMarker, 'click', marker_click);
-		$('#site_nodeselector select[name=nodeid]').append(
-			'<option value="'+(response.data.id)+'">'+response.data.name+'</option>');
-		
+		_gui_push_node(response.data.id, response.data.position, {});
 		hide_modal();
 		reset_gui();
 	}, function(){
@@ -41,27 +29,32 @@ function _new_vertex(e) {
 	});
 }
 
-function focus_node_do() {
+function focus_node_do(idNode) {
+	//-- Get node info from library...
+	var selectedIdMarker;
+	if ((idNode in nodeMarkerMap_) && (idNode in neighborNodeCache_)) {
+		selectedIdMarker = nodeMarkerMap_[idNode];
+	} else {
+		_gui_need_refresh('focus_node_do: ' + idNode + " not in nodeMarkerMap_ or " + idNode + " not in neighborNodeCache_");
+		return;
+	}
+	
 	change_state(STATE_NODESELECTED, node_clear_workspace);
 	
-	map.panTo(jsonData.nodedata.position);
+	var focusPos = activeMarkers[selectedIdMarker].getPosition();
+	map.panTo(focusPos);
 	$("#table_edge tbody").empty();
 
-	var edgeCount = jsonData.edges.length;
+	var edgeCount = neighborNodeCache_[idNode].length;
 	var ctr; var reversibleLabel;
 	
 	clear_lines();
 	for (ctr = 0; ctr < edgeCount; ctr++) {
-		var polyLineData = jsonData.edges[ctr].polyline_data;
+		var idNodeAdj = neighborNodeCache_[idNode][ctr].id_node_adj;
+		var idEdge = neighborNodeCache_[idNode][ctr].id_edge;
+		var idPolyline = edgePolylineMap_[idEdge];
 		
-		// Tambahkan lokasi node di ujung awal dan akhir polyline
-		if (jsonData.edges[ctr].polyline_dir > 0) {
-			polyLineData.unshift(jsonData.nodedata.position);
-			polyLineData.push(jsonData.edges[ctr].position);
-		} else {
-			polyLineData.unshift(jsonData.edges[ctr].position);
-			polyLineData.push(jsonData.nodedata.position);
-		}
+		var polyLineData = edgeNetworkPreview[idPolyline].getPath();
 		
 		activeLines.push(new google.maps.Polyline({
 			path: polyLineData,
@@ -71,22 +64,24 @@ function focus_node_do() {
 			strokeWeight: 2,
 			clickable: true,
 			map: map,
-			id_edge: jsonData.edges[ctr].id_edge
+			id_edge: idEdge,
+			zIndex: 10
 		}));
 		
 		google.maps.event.addListener(activeLines[ctr], 'click', function(){
 			edit_edge(this.id_edge);
 		});
 		
-		reversibleLabel = (jsonData.edges[ctr].reversible?"Y":"N");
+		reversibleLabel = (edgeNetworkPreview[idPolyline].edgeData.reversible?"Y":"N");
+		/*
 		$("#table_edge tbody").append(
-				'<tr><td><a href="#" onclick="return focus_node('+jsonData.edges[ctr].id+');" title="'+jsonData.edges[ctr].name+'">'+
+				'<tr><td><a href="#" onclick="return focus_node('+edgeNetworkPreview[idPolyline].id_edge+');" title="'+jsonData.edges[ctr].name+'">'+
 				jsonData.edges[ctr].id+'</a>'+
 				'</td><td>'+jsonData.edges[ctr].distance+' km'+
 				'</td><td>'+reversibleLabel+'</td><td> '+
 				'<a href="#" onclick="return edit_edge('+jsonData.edges[ctr].id_edge+');">edit</a> | ' + 
 				'<a href="#" onclick="return delete_edge('+nodeId+','+jsonData.edges[ctr].id_edge+');">hapus</a>' + 
-				'</td></tr>');
+				'</td></tr>');*/
 	}
 	
 	update_gui();
@@ -94,14 +89,16 @@ function focus_node_do() {
 	//-- Cursor: Tunjuk pada marker yang dipilih
 	if (nodeCursor == null) {
 		nodeCursor = new google.maps.Marker({
-			position: jsonData.nodedata.position,
+			id_node: idNode,
+			position: focusPos,
 			map: map,
 			icon: MARKERBASE + 'arrow.png',
 			clickable: false
 		});
 	} else {
+		nodeCursor.id_node = idNode;
 		nodeCursor.setVisible(true);
-		nodeCursor.setPosition(jsonData.nodedata.position);
+		nodeCursor.setPosition(focusPos);
 	}
 }
 function focus_node(nodeId) { // nodeId di database
@@ -113,19 +110,38 @@ function focus_node(nodeId) { // nodeId di database
 		var edgeCount = jsonData.edges.length;
 		var ctr;
 		
+		var idNodeFrom; var idNodeDest; var adjNodePosition;
+		
+		//-- Karena pada proses ini server mengambil semua node adjacent, maka perbari cache...
+		//if (!(jsonData.nodedata.id in neighborNodeCache_))
+		//	neighborNodeCache_[jsonData.nodedata.id] = [];
+		neighborNodeCache_[jsonData.nodedata.id] = [];
+		
 		for (ctr = 0; ctr < edgeCount; ctr++) {
-			//var decodedPath = google.maps.geometry.encoding.decodePath(jsonData.edges[ctr].polyline_data);
-			var polyLineData = jsonData.edges[ctr].polyline_data;
-			
-			// Tambahkan lokasi node di ujung awal dan akhir polyline
-			if (jsonData.edges[ctr].polyline_dir > 0) {
-				polyLineData.unshift(jsonData.nodedata.position);
-				polyLineData.push(jsonData.edges[ctr].position);
+			// Cek dulu apakah ada dalam map?
+			if (jsonData.edges[ctr].id_node_adj in nodeMarkerMap_) {
+				if (jsonData.edges[ctr].polyline_dir > 1) {
+					idNodeFrom = nodeId;
+					idNodeDest = jsonData.edges[ctr].id_node_adj;
+				} else {
+					idNodeFrom = jsonData.edges[ctr].id_node_adj;
+					idNodeDest = nodeId;
+				}
+				
+				neighborNodeCache_[nodeId].push({
+					id_edge: jsonData.edges[ctr].id_edge,
+					id_node_adj: jsonData.edges[ctr].id_node_adj
+				});
 			} else {
-				polyLineData.unshift(jsonData.edges[ctr].position);
-				polyLineData.push(jsonData.nodedata.position);
+				_gui_need_refresh('focus_node: Node '+jsonData.edges[ctr].id_node_adj+' not in nodeMarkerMap_');
+				break;
 			}
 			
+			var polyLineData = google.maps.geometry.encoding.decodePath(jsonData.edges[ctr].polyline);
+			//var polyLineData = jsonData.edges[ctr].polyline_data;
+			
+			_gui_modify_edge(jsonData.edges[ctr].id_edge, polyLineData, jsonData.edges[ctr].edge_data);
+			/*
 			activeLines.push(new google.maps.Polyline({
 				path: polyLineData,
 				geodesic: false,
@@ -149,19 +165,20 @@ function focus_node(nodeId) { // nodeId di database
 					'</td><td>'+reversibleLabel+'</td><td> '+
 					'<a href="#" onclick="return edit_edge('+jsonData.edges[ctr].id_edge+');">edit</a> | ' + 
 					'<a href="#" onclick="return delete_edge('+nodeId+','+jsonData.edges[ctr].id_edge+');">hapus</a>' + 
-					'</td></tr>');
+					'</td></tr>'); */
 		}
 		
+		focus_node_do(jsonData.nodedata.id);
 	}, "Memuat...", URL_DATA_AJAX);
 	return false;
 }
 
 function node_clear_workspace(oldState, newState) {
 	// Sembunyikan cursor jika status baru bukan untuk 'mengolah' node.
-	if ((newState != STATE_NODESELECTED) && (newState != STATE_MOVESELECTED)) {
+	if ((newState != STATE_NODESELECTED) && (newState != STATE_MOVENODE)) {
 		if (nodeCursor)	nodeCursor.setVisible(false);
 	}
-	if (oldState == STATE_MOVESELECTED) {
+	if (oldState == STATE_MOVENODE) {
 		nodeCursor.setDraggable(false);
 		
 		//-- Reshow all markers
@@ -226,6 +243,10 @@ function node_move_commit() {
 		id: nodeCursor.id_node,
 		position: {lat: newLat, lng: newLng}
 	}, function(jsonData){
+		var currentIdNode = nodeCursor.id_node;
+		_gui_modify_node(currentIdNode, newPosition, {});
 		
+		toastr.success('Node successfully moved.');
+		reset_gui();
 	}, "Memproses...", URL_DATA_AJAX);
 }

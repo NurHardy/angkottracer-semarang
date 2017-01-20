@@ -58,20 +58,35 @@ function edit_edge(idEdge) {
 		change_state(STATE_EDGESELECTED, edge_clear_workspace);
 		clear_lines();
 		
+		//-- Hide editing edge
+		var idActivePolyline = _get_idpolyline_by_idedge(idEdge);
+		if (idActivePolyline) {
+			edgeNetworkPreview[idActivePolyline].setVisible(false);
+		}
+		
+		//-- Modify existing node
+		_gui_modify_node(jsonData.edgedata.from.id_node, new google.maps.LatLng(jsonData.edgedata.from.position));
+		_gui_modify_node(jsonData.edgedata.dest.id_node, new google.maps.LatLng(jsonData.edgedata.dest.position));
+		
+		//-- Add to editing line
 		var polyLineData = jsonData.edgedata.polyline_data;
 		polyLineData.unshift(jsonData.edgedata.from.position);
 		polyLineData.push(jsonData.edgedata.dest.position);
 		
-		//-- Draw polylines in the map
+		//-- Draw editable polylines in the map
 		if (activeEditingPolyLine) {
 			activeEditingPolyLine.setMap(map);
 			activeEditingPolyLine.setPath(polyLineData);
 			activeEditingPolyLine.id_edge = idEdge;
-			activeEditingPolyLine.reversible = jsonData.edgedata.reversible;
+			
+			activeEditingPolyLine.edgeData.id_node_from = jsonData.edgedata.from.id_node;
+			activeEditingPolyLine.edgeData.id_node_dest = jsonData.edgedata.dest.id_node;
+			activeEditingPolyLine.edgeData.reversible = jsonData.edgedata.reversible;
+			
+			google.maps.event.addListener(activeEditingPolyLine.getPath(), 'set_at', edit_edge_setat_);
 		} else {
 			activeEditingPolyLine = new google.maps.Polyline({
 				path: polyLineData,
-				reversible: jsonData.edgedata.reversible,
 				geodesic: false,
 				strokeColor: '#162953',
 				strokeOpacity: 1.0,
@@ -79,7 +94,12 @@ function edit_edge(idEdge) {
 				clickable: false,
 				editable: true,
 				map: map,
-				id_edge: idEdge
+				id_edge: idEdge,
+				edgeData: {
+					id_node_from: jsonData.edgedata.from.id_node,
+					id_node_dest: jsonData.edgedata.dest.id_node,
+					reversible: jsonData.edgedata.reversible
+				}
 			});
 			
 			//-- Setup editing context menu
@@ -139,6 +159,13 @@ function edit_edge(idEdge) {
 		
 		edit_edge_setat_();
 		
+		//-- Pan viewport
+		var bounds = new google.maps.LatLngBounds();
+		for (var i = 0; i < polyLineData.length; i++) {
+		    bounds.extend(polyLineData[i]);
+		}
+		map.fitBounds(bounds);
+		
 		update_gui(false);
 	}, "Memuat...", URL_DATA_AJAX);
 }
@@ -150,6 +177,14 @@ function edit_edge(idEdge) {
 function edge_clear_workspace(oldState, newState) {
 	if (labelMarkers[0]) labelMarkers[0].setVisible(false);
 	if (labelMarkers[1]) labelMarkers[1].setVisible(false);
+	
+	//-- Show editing edge, if exists
+	if (activeEditingPolyLine.id_edge) {
+		var idActivePolyline = _get_idpolyline_by_idedge(activeEditingPolyLine.id_edge);
+		if (idActivePolyline) {
+			edgeNetworkPreview[idActivePolyline].setVisible(true);
+		}
+	}
 	
 	//-- Reshow all markers
 	activeMarkers.map(function(curMarker, i){
@@ -171,14 +206,28 @@ function edge_do_delete_(idEdge, afterDeleteCallback) {
 	return false;
 }
 
-function edge_rename() {
+function edge_showprops() {
 	if (currentState != STATE_EDGESELECTED) return false;
 	if (!activeEditingPolyLine) return false;
 	
-	alert("ID edge: "+activeEditingPolyLine.id_edge);
+	//-- Init panel before showing them to user...
+	var selectedIdMarker = _get_idpolyline_by_idedge(activeEditingPolyLine.id_edge);
+	var edgeName = edgeNetworkPreview[selectedIdMarker].edgeData.edge_name;
+	var isReversible = edgeNetworkPreview[selectedIdMarker].edgeData.reversible;
+	$("#fpanel_edgeopts #edge_name").val(edgeName);
+	$("#fpanel_edgeopts #edge_isreversible").val((isReversible ? "yes" : "no"));
+	
+	$("#fpanel_edgeopts").show();
+	$("#site_floatpanel_extension").fadeIn(200, function(){
+		$("#edge_name").focus();
+	});
 	return false;
 }
 
+function edge_propform_onsubmit() {
+	
+	return false;
+}
 function edge_save() {
 	if (currentState != STATE_EDGESELECTED) return false;
 	if (!activeEditingPolyLine) return false;
@@ -189,11 +238,21 @@ function edge_save() {
 	_ajax_send({
 		verb: 'edge.save',
 		id: activeEditingPolyLine.id_edge,
-		new_path: encStr
+		new_path: encStr,
+		id_node_from: activeEditingPolyLine.edgeData.id_node_from,
+		id_node_dest: activeEditingPolyLine.edgeData.id_node_dest
 	}, function(jsonData){
 		//-- Clone path
 		var decPath = google.maps.geometry.encoding.decodePath(encStr);
-		_gui_modify_edge(activeEditingPolyLine.id_edge, decPath, activeEditingPolyLine.reversible);
+		_gui_modify_edge(activeEditingPolyLine.id_edge, decPath, {
+			reversible: activeEditingPolyLine.edgeData.reversible
+		});
+		
+		//-- Geser node ujung, dan update edge yang adjacent
+		var lastIdx = decPath.length - 1;
+		_gui_modify_node(activeEditingPolyLine.edgeData.id_node_from, decPath[0]);
+		_gui_modify_node(activeEditingPolyLine.edgeData.id_node_dest, decPath[lastIdx]);
+		
 		toastr.success('Edge successfully saved.');
 	}, "Menyimpan...", URL_DATA_AJAX);
 	
@@ -289,6 +348,9 @@ function edge_interpolate() {
 	return false;
 }
 
+function create_shelter(vertexIdx) {
+	alert(vertexIdx);
+}
 function edge_break(vertexIdx) {
 	if (currentState != STATE_EDGESELECTED) return false;
 	if (!activeEditingPolyLine) return false;
@@ -308,8 +370,66 @@ function edge_break(vertexIdx) {
 		_gui_push_node(jsonData.new_node_id, jsonData.new_node_pos,
 				'#'+jsonData.new_node_id+': '+jsonData.new_node_name);
 		
+		var poly1 = google.maps.geometry.encoding.decodePath(jsonData.new_polyline[0].polyline);
+		var poly2 = google.maps.geometry.encoding.decodePath(jsonData.new_polyline[1].polyline);
+		
+		//-- Jika edge lama direplace
+		if (activeEditingPolyLine.id_edge == jsonData.new_polyline[0].id_edge) {
+			_gui_modify_edge(activeEditingPolyLine.id_edge, poly1, {
+				edge_name: jsonData.new_polyline[0].edge_name,
+				id_node_dest: jsonData.new_node_id,
+				reversible: jsonData.new_polyline[0].reversible
+			});
+			
+			//-- Update neighbor cache
+			var idPolyline = _get_idpolyline_by_idedge(activeEditingPolyLine.id_edge);
+			var idNodeFrom = edgeNetworkPreview[idPolyline].edgeData.id_node_from;
+			var idNodeDest = edgeNetworkPreview[idPolyline].edgeData.id_node_dest;
+			
+			neighborNodeCache_[idNodeFrom].find(function(elmt, idx){
+				if (elmt.id_edge == activeEditingPolyLine.id_edge) {
+					neighborNodeCache_[idNodeFrom][idx].id_node_adj = jsonData.new_node_id;
+					return true;
+				} else return false;
+			});
+			
+			neighborNodeCache_[idNodeDest].find(function(elmt, idx){
+				if (elmt.id_edge == activeEditingPolyLine.id_edge) {
+					neighborNodeCache_[idNodeDest][idx].id_edge = jsonData.new_polyline[1].id_edge;
+					neighborNodeCache_[idNodeDest][idx].id_node_adj = jsonData.new_node_id;
+					return true;
+				} else return false;
+			});
+		} else {
+			_gui_push_edge(jsonData.new_polyline[0].id_edge, poly1, {
+				edge_name: edgeNetworkPreview[idPolyline].edgeData.edge_name,
+				id_node_from: idNodeFrom,
+				id_node_dest: jsonData.new_node_id,
+				reversible: jsonData.new_polyline[0].reversible
+			});
+		}
+		_gui_push_edge(jsonData.new_polyline[1].id_edge, poly2, {
+			edge_name: jsonData.new_node_name,
+			id_node_from: jsonData.new_node_id,
+			id_node_dest: idNodeDest,
+			reversible: jsonData.new_polyline[1].reversible
+		});
+		
+		//-- Modify neighbor cache
+		var idPolyline = _get_idpolyline_by_idedge(activeEditingPolyLine.id_edge);
+		var idNodeFrom = edgeNetworkPreview[idPolyline].edgeData.id_node_from;
+		var idNodeDest = edgeNetworkPreview[idPolyline].edgeData.id_node_dest;
+		
+		neighborNodeCache_[idNodeFrom].find(function(elmt, idx){
+			if (elmt.id_edge == activeEditingPolyLine.id_edge) {
+				neighborNodeCache_[idNodeFrom][idx].id_node_adj = jsonData.new_node_id;
+				return true;
+			} else return false;
+		});
+		
 		toastr.success('Edge successfully breaked.');
-		focus_node(jsonData.new_node_id);
+		focus_node_do(jsonData.new_node_id);
+		
 	}, "Menyimpan...", URL_DATA_AJAX);
 	
 	return false;
@@ -323,6 +443,7 @@ function edge_delete() {
 	
 	edge_do_delete_(activeEditingPolyLine.id_edge, function(){
 		_gui_modify_edge(activeEditingPolyLine.id_edge, null);
+		activeEditingPolyLine.id_edge = null;
 		toastr.success('Edge successfully deleted.');
 		reset_gui();
 	});

@@ -75,6 +75,7 @@ function do_astar_algorithm() {
 	require_once(APP_PATH."/model/node.php");
 	require_once(APP_PATH."/model/edge.php");
 	require_once(APP_PATH."/helper/geo-tools.php");
+	require_once(APP_PATH."/helper/gmap-tools.php");
 	
 	$dbNode = get_nodes(-1);
 	$dbEdge = get_edges();
@@ -83,9 +84,9 @@ function do_astar_algorithm() {
 		$nodeFrom = $edgeItem['id_node_from'];
 		$nodeDest = $edgeItem['id_node_dest'];
 		
-		$dbNode[$nodeFrom]['neighbors'][$nodeDest] = $edgeItem['distance'];
+		$dbNode[$nodeFrom]['neighbors'][$nodeDest] = array($edgeItem['distance'], $edgeItem['id_edge']);
 		if ($edgeItem['reversible'] == 1) {
-			$dbNode[$nodeDest]['neighbors'][$nodeFrom] = $edgeItem['distance'];
+			$dbNode[$nodeDest]['neighbors'][$nodeFrom] = array($edgeItem['distance'], $edgeItem['id_edge']);
 		}
 	}
 	
@@ -133,28 +134,63 @@ function do_astar_algorithm() {
 		
 		$currentNodeId = $fScoreIndexCheck;
 		if ($currentNodeId == $idNodeGoal) {
-			$finalRoute = array($idNodeGoal);
-			
 			$fromNode = $idNodeGoal;
+			$idEdge = $cameFrom[$fromNode][1];
+			
+			$finalRoute = array([$idNodeGoal, $idEdge]);
+			
 			while ($fromNode != $idNodeStart) {
-				$fromNode = $cameFrom[$fromNode];
-				$finalRoute[] = $fromNode;
+				$fromNode = $cameFrom[$fromNode][0];
+				$idEdge = ($fromNode == $idNodeStart ? null : $cameFrom[$fromNode][1]);
+				$finalRoute[] = [$fromNode, $idEdge];
 			}
 			
 			$nodeCount = count($finalRoute);
 			$counter = 1;
 			$verboseData .= "------------------ Search finished -----\n";
 			$verboseData .= " Route result:\n";
+			
+			$prevLoc = ['lat' => null, 'lng' => null];
 			for ($i=$nodeCount-1; $i >= 0; $i--) {
-				$currentNodeData = $dbNode[$finalRoute[$i]];
+				$edgeRouteData = null;
+				$currentIdEdge = $finalRoute[$i][1];
+				
+				$currentNodeData = $dbNode[$finalRoute[$i][0]];
+				$nextLoc = array(
+						'lat' => floatval($currentNodeData['location_lat']),
+						'lng' => floatval($currentNodeData['location_lng'])
+				);
+				if ($currentIdEdge) {
+					$edgeData = get_edge_by_id($currentIdEdge);
+					if ($edgeData) {
+						$pointArr = mysql_to_latlng_coords($edgeData['polyline_data']);
+						
+						if ($edgeData['id_node_dest'] == $currentNodeData['id_node']) { // Arah maju
+							array_unshift($pointArr, $prevLoc);
+							array_push($pointArr, $nextLoc);
+						} else { // Mundur...
+							array_reverse($pointArr);
+							array_unshift($pointArr, $nextLoc);
+							array_push($pointArr, $prevLoc);
+						}
+						
+						$edgeRouteData = array(
+							'id_edge' => $currentIdEdge,
+							'polyline' => encode_polyline($pointArr)
+						);
+					}
+				}
+				
 				$shortestPathSeq[] = array(
 						'id' => $currentNodeData['id_node'],
-						'position' => array(
-								'lat' => floatval($currentNodeData['location_lat']),
-								'lng' => floatval($currentNodeData['location_lng'])
-						)
+						'position' => $nextLoc,
+						'edge_data' => $edgeRouteData
 				);
-				$verboseData .= "   ".$counter.". ".$dbNode[$finalRoute[$i]]['node_name']."\n";
+				
+				$prevLoc['lat'] = floatval($currentNodeData['location_lat']);
+				$prevLoc['lng'] = floatval($currentNodeData['location_lng']);
+				
+				$verboseData .= "   ".$counter.". ".$dbNode[$finalRoute[$i][0]]['node_name']."\n";
 				$counter++;
 			}
 			
@@ -173,16 +209,16 @@ function do_astar_algorithm() {
 		//$verboseData .= "\n";
 		//print_r($gScore);
 		//$verboseData .= "\n";
-		foreach ($dbNode[$currentNodeId]['neighbors'] as $neighborNodeId => $neighborNodeDistance) {
+		foreach ($dbNode[$currentNodeId]['neighbors'] as $neighborNodeId => $neighborNodeData) {
 			//$neighborNodeId = $neighborNode['id_node'];
-			$verboseData .= " o Neighbor node : ".$neighborNodeId." (".$dbNode[$neighborNodeId]['node_name']."), dist: ".$neighborNodeDistance."\n";
+			$verboseData .= " o Neighbor node : ".$neighborNodeId." (".$dbNode[$neighborNodeId]['node_name']."), dist: ".$neighborNodeData[0]."\n";
 			if (in_array($neighborNodeId, $visitedNodes)) {
 				$verboseData .= "-- ignored\n";
 				continue;
 			}
 			
 			if (!isset($gScore[$neighborNodeId])) $gScore[$neighborNodeId] = 100.0;
-			$tentativegScore = $gScore[$currentNodeId] + $neighborNodeDistance;
+			$tentativegScore = $gScore[$currentNodeId] + $neighborNodeData[0];
 			
 			if (!key_exists($neighborNodeId, $openNodes)) {
 				$openNodes[$neighborNodeId] = 1;
@@ -191,7 +227,7 @@ function do_astar_algorithm() {
 				continue;
 			}
 			
-			$cameFrom[$neighborNodeId] = $currentNodeId;
+			$cameFrom[$neighborNodeId] = array($currentNodeId, $neighborNodeData[1]);
 			$gScore[$neighborNodeId] = $tentativegScore;
 			$fScore[$neighborNodeId] = $gScore[$neighborNodeId] + distance(
 					$dbNode[$neighborNodeId]['location_lat'],

@@ -46,6 +46,12 @@ function VertexContextMenu() {
   this.subMenus[4].innerHTML = 'Convert to Node';
   this.div_.appendChild(this.subMenus[4]);
   
+  this.subMenus.push(document.createElement('a'));
+  this.subMenus[5].className = 'menu-item';
+  this.subMenus[5].id = 'ctxmenu-0-addshelter';
+  this.subMenus[5].innerHTML = 'Add Shelter';
+  this.div_.appendChild(this.subMenus[5]);
+  
   var menu = this;
   google.maps.event.addDomListener(this.subMenus[0], 'click', function() {
 	  menu.removeVertex();
@@ -58,6 +64,9 @@ function VertexContextMenu() {
   });
   google.maps.event.addDomListener(this.subMenus[4], 'click', function() {
 	  menu.setVertexAsNode();
+  });
+  google.maps.event.addDomListener(this.subMenus[5], 'click', function() {
+	  menu.insertShelter();
   });
 }
 VertexContextMenu.prototype = new google.maps.OverlayView();
@@ -189,4 +198,22 @@ VertexContextMenu.prototype.setVertexAsNode = function() {
 	
 	//-- Panggil!
 	edge_break(vertex);
+};
+
+/**
+ * Tambah shelter di komponen edge
+ */
+VertexContextMenu.prototype.insertShelter = function() {
+	var path = this.get('path');
+	var vertex = this.get('vertex');
+	
+	if (!path || vertex == undefined) {
+		this.close();
+		return;
+	}
+	
+	this.close();
+	
+	//-- Panggil!
+	create_shelter(vertex);
 };

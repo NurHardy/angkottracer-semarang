@@ -8,6 +8,12 @@
 		);
 	}
 
+	function generate_message($statusCode = 'ok', $message = null) {
+		return array(
+				'status' => $statusCode,
+				'message' => $message
+		);
+	}
 //=============== AJAX RUNTIME ==============
 	$jsonResponse = array();
 	$moduleName = @$_GET['mod'];

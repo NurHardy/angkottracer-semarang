@@ -33,5 +33,13 @@
 	    $app->render('index.html');
 	});
 	
+	// Define routes
+	$app->get('/path', function () use ($app) {
+		echo json_encode(array(
+			'status' => 'ok',
+			'data' => '1234567'
+		));
+	});
+	
 	// Run app
 	$app->run();

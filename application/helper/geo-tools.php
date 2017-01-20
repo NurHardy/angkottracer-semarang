@@ -29,6 +29,15 @@
 		return sprintf("POINT(%f %f)", $nodePosLng, $nodePosLat);
 	}
 	
+	/**
+	 * Ubah object [lat,lng] ke MySQL geometri (POINT)
+	 * @param array $paramCoord Array posisi (lng, lat)
+	 * @return string
+	 */
+	function latlng_coord_to_mysql($paramCoord) {
+		return sprintf("POINT(%f %f)", $paramCoord['lng'], $paramCoord['lat']);
+	}
+	
 	function latlng_coords_to_mysql($paramCoords) {
 		$resultStr = "";
 		

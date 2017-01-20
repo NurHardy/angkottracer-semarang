@@ -6,6 +6,62 @@
  * By Nur Hardyanto
  */
 
+	function _generate_init_data() {
+		global $mysqli;
+		
+		$nodeData = get_nodes();
+			
+		// Node map memetakan id_node ke index
+		$nodeMap = array();
+		$nodes = array();
+			
+		$ctrId = 0;
+		foreach ($nodeData as $nodeItem) {
+			$nodes[$ctrId] = array(
+					'id' => $nodeItem['id_node'],
+					'name' => $nodeItem['node_name'],
+					'position' => array(
+							'lat' => floatval($nodeItem['location_lat']),
+							'lng' => floatval($nodeItem['location_lng']))
+			);
+		
+			$nodeMap[$nodeItem['id_node']] = $ctrId;
+			$ctrId++;
+		}
+			
+		//-- List semua edge...
+		require_once APP_PATH.'/model/edge.php';
+		require_once APP_PATH.'/helper/geo-tools.php';
+		require_once APP_PATH.'/helper/gmap-tools.php';
+			
+		$edgeList = get_edges(true);
+			
+		$edges = array();
+		foreach ($edgeList as $edgeItem) {
+			$points = mysql_to_latlng_coords($edgeItem['polyline_data']);
+		
+			array_unshift($points, $nodes[$nodeMap[$edgeItem['id_node_from']]]['position']);
+			array_push($points, $nodes[$nodeMap[$edgeItem['id_node_dest']]]['position']);
+		
+			$encPolyline = encode_polyline($points);
+		
+			$edges[] = array(
+					'id_edge' => $edgeItem['id_edge'],
+					'edge_data' => array(
+						'edge_name' => $edgeItem['edge_name'],
+						'id_node_from' => $edgeItem['id_node_from'],
+						'id_node_dest' => $edgeItem['id_node_dest'],
+						'reversible' => ($edgeItem['reversible'] == 1)
+					),
+					'polyline' => $encPolyline
+			);
+		}
+		return array(
+				'status' => 'ok',
+				'data' => $nodes,
+				'edge' => $edges
+		);
+	}
 	/**
 	 * Fungsi memroses khusus node.
 	 * 
@@ -18,56 +74,7 @@
 		// Load model node.php
 		require_once APP_PATH.'/model/node.php';
 		if ($actionVerb == 'get') {
-			$nodeData = get_nodes();
-			
-			// Node map memetakan id_node ke index
-			$nodeMap = array();
-			$nodes = array();
-			
-			$ctrId = 0;
-			foreach ($nodeData as $nodeItem) {
-				$nodes[$ctrId] = array(
-					'id' => $nodeItem['id_node'],
-					'name' => $nodeItem['node_name'],
-					'position' => array(
-							'lat' => floatval($nodeItem['location_lat']),
-							'lng' => floatval($nodeItem['location_lng']))
-				);
-				
-				$nodeMap[$nodeItem['id_node']] = $ctrId;
-				$ctrId++;
-			}
-			
-			//-- List semua edge...
-			require_once APP_PATH.'/model/edge.php';
-			require_once APP_PATH.'/helper/geo-tools.php';
-			require_once APP_PATH.'/helper/gmap-tools.php';
-			
-			$edgeList = get_edges(true);
-			
-			$edges = array();
-			foreach ($edgeList as $edgeItem) {
-				$points = mysql_to_latlng_coords($edgeItem['polyline_data']);
-				
-				array_unshift($points, $nodes[$nodeMap[$edgeItem['id_node_from']]]['position']);
-				array_push($points, $nodes[$nodeMap[$edgeItem['id_node_dest']]]['position']);
-				
-				$encPolyline = encode_polyline($points);
-				
-				$edges[] = array(
-					'edge_name' => $edgeItem['id_edge'],
-					'id_edge' => $edgeItem['id_edge'],
-					'id_node_from' => $edgeItem['id_node_from'],
-					'id_node_dest' => $edgeItem['id_node_dest'],
-					'polyline' => $encPolyline,
-					'reversible' => ($edgeItem['reversible'] == 1)
-				);
-			}
-			return array(
-					'status' => 'ok',
-					'data' => $nodes,
-					'edge' => $edges
-			);
+			return _generate_init_data();
 		} else if ($actionVerb == 'getbyid') {
 			$idNode = intval($_POST['id']);
 			$nodeItem = get_node_by_id($idNode);
@@ -88,19 +95,48 @@
 				$adjEdges = array();
 				foreach ($adjEdgesList as $edgeItem) {
 					$polyLineData = mysql_to_latlng_coords($edgeItem['polyline_data']);
-					$encPolyLine = encode_polyline($polyLineData);
+					
+					//-- Append node position in edges
+					if ($edgeItem['polyline_dir'] > 0) {
+						array_unshift($polyLineData, array(
+							'lat' => floatval($nodeItem['location_lat']),
+							'lng' => floatval($nodeItem['location_lng'])
+						));
+						array_push($polyLineData, array(
+							'lat' => floatval($edgeItem['node_location_lat']),
+							'lng' => floatval($edgeItem['node_location_lng'])
+						));
+					} else {
+						array_unshift($polyLineData, array(
+							'lat' => floatval($edgeItem['node_location_lat']),
+							'lng' => floatval($edgeItem['node_location_lng'])
+						));
+						array_push($polyLineData, array(
+							'lat' => floatval($nodeItem['location_lat']),
+							'lng' => floatval($nodeItem['location_lng'])
+						));
+					}
+					
+					
+					$encPolyline = encode_polyline($polyLineData);
 					$adjEdges[] = array(
 							'id_edge' => $edgeItem['id_edge'],
-							'id' => $edgeItem['id_node_adj'],
-							'position' => array(
+							'edge_data' => array(
+									'edge_name' => $edgeItem['edge_name'],
+									'id_node_from' => $edgeItem['id_node_from'],
+									'id_node_dest' => $edgeItem['id_node_dest'],
+									'reversible' => ($edgeItem['reversible'] == 1)
+							),
+							'polyline' => $encPolyline,
+							
+							//-- Additional data
+							'id_node_adj' => $edgeItem['id_node_adj'],
+							'adj_node_position' => array(
 									'lat' => floatval($edgeItem['node_location_lat']),
 									'lng' => floatval($edgeItem['node_location_lng'])
 							),
-							'name'		=> $edgeItem['node_name'],
 							'distance'	=> $edgeItem['distance'],
-							'polyline_data'	=> $polyLineData,
-							'polyline_dir'	=> $edgeItem['polyline_dir'],
-							'reversible'	=> ($edgeItem['reversible']==1)
+							'polyline_dir'	=> $edgeItem['polyline_dir']
 					);
 				}
 				
@@ -158,14 +194,16 @@
 				$nodeDataQuery['creator'] = "'system'";
 				if ($newId = save_node($nodeDataQuery, -1)) {
 					$savedNodeData = array(
-							'id' => $newId,
-							'name' => $nodeName,
+						'id' => $newId,
+						'name' => $nodeName,
+						'position' => array(
 							'lat' => $nodePosLat,
 							'lng' => $nodePosLng
+						)
 					);
 					return array(
-							'status' => 'ok',
-							'data' => $savedNodeData
+						'status' => 'ok',
+						'data' => $savedNodeData
 					);
 				} else {
 					echo mysqli_error($mysqli);
@@ -177,16 +215,31 @@
 			// Proses hapus node akan menghapus record node, dan semua edge yang adjacent
 			
 		} else if ($actionVerb == 'edit') {
-			// Memindahkan node
-			$idEgde = $_POST['id'];
-			$latLngData = $_POST['position'];
-			$newLabel = $_POST['name'];
-			$trafficIdx = $_POST['traffic'];
+			require_once APP_PATH.'/helper/geo-tools.php';
 			
-			return array(
-					'status' => 'ok',
-					'data' => $latLngData
+			// Memindahkan node
+			$idNode = $_POST['id'];
+			$latLngData = $_POST['position'];
+			//$newLabel = $_POST['name'];
+			//$trafficIdx = $_POST['traffic'];
+			
+			$latLngObj = array(
+				'lat' => floatval($latLngData['lat']),
+				'lng' => floatval($latLngData['lng'])
 			);
+			$locationQuery = db_geom_from_text(latlng_coord_to_mysql($latLngObj));
+			$updateData = array(
+				'location' => $locationQuery
+			);
+			if (save_node($updateData, $idNode)) {
+				return array(
+						'status' => 'ok',
+						'data' => $latLngData
+				);
+			} else {
+				return generate_error("Query failed.");
+			}
+			
 		} else {
 			return generate_error("Unrecognized verb: ".$actionVerb);
 		}
@@ -323,15 +376,38 @@
 			}
 			
 		} else if ($actionVerb == 'save') {
+			// TODO: Ubah posisi node from dan node dest saat selesai edit edge...
+			
 			$encPolyLine = $_POST['new_path'];
 			$idEdge = $_POST['id'];
+			$idNodeFrom = $_POST['id_node_from'];
+			$idNodeDest = $_POST['id_node_dest'];
 			
 			require_once APP_PATH.'/helper/gmap-tools.php';
 			require_once APP_PATH.'/helper/geo-tools.php';
+			require_once APP_PATH.'/model/node.php';
 			
 			$polyLineData = decode_polyline($encPolyLine);
 			
 			$lastIdx = count($polyLineData)-1;
+			
+			//-- Start transaction
+			$mysqli->autocommit(false);
+			
+			//-- Update posisi node ujung...
+			$nodeDataQuery = array();
+			
+			$nodeDataQuery['location'] = "GeomFromText('".latlng_coord_to_mysql($polyLineData[$lastIdx])."')";
+			if (!save_node($nodeDataQuery, $idNodeDest)) {
+				$mysqli->rollback();
+				return generate_error("Query failed.");
+			}
+			
+			$nodeDataQuery['location'] = "GeomFromText('".latlng_coord_to_mysql($polyLineData[0])."')";
+			if (!save_node($nodeDataQuery, $idNodeFrom)) {
+				$mysqli->rollback();
+				return generate_error("Query failed.");
+			}
 			
 			//-- Napus vertex pertama dan terakhir karena merupakan node
 			unset($polyLineData[$lastIdx]);
@@ -345,10 +421,13 @@
 			$queryResult = save_edge($updateData, $idEdge);
 			
 			if ($queryResult) {
+				$mysqli->commit();
 				return array(
 						'status' => 'ok',
 						'edgedata' => 1
 				);
+			} else {
+				$mysqli->rollback();
 			}
 			
 			return generate_error("Query failed.");
@@ -368,18 +447,30 @@
 			$lastIdx = count($polyLineData)-1;
 				
 			//-- Napus vertex pertama dan terakhir karena merupakan node
-			unset($polyLineData[$lastIdx]);
-			unset($polyLineData[0]);
+			//unset($polyLineData[$lastIdx]);
+			//unset($polyLineData[0]);
 			
 			$errorMsg = null;
-			$newId = save_and_break_edge($polyLineData, $idxVertex, $idEdge, true, $errorMsg);
+			$newPolyline = array();
+			$newId = save_and_break_edge($polyLineData, $idxVertex, $idEdge, $errorMsg, $newPolyline, true);
 			
 			if ($newId) {
+				//-- Append node ujung...
+				array_unshift($newPolyline[0]['polyline'], $polyLineData[0]);
+				array_push($newPolyline[0]['polyline'], $polyLineData[$idxVertex]);
+					
+				array_unshift($newPolyline[1]['polyline'], $polyLineData[$idxVertex]);
+				array_push($newPolyline[1]['polyline'], $polyLineData[$lastIdx]);
+					
+				$newPolyline[0]['polyline'] = encode_polyline($newPolyline[0]['polyline']);
+				$newPolyline[1]['polyline'] = encode_polyline($newPolyline[1]['polyline']);
+				
 				return (array(
 						'status' => 'ok',
-						'new_node_id' => $newId,
+						'new_node_id' => strval($newId),
 						'new_node_pos' => $polyLineData[$idxVertex],
-						'new_node_name' => 'Untitled'
+						'new_node_name' => 'Untitled',
+						'new_polyline' => $newPolyline
 				));
 			} else {
 				return generate_error("Process failed: ".$errorMsg);

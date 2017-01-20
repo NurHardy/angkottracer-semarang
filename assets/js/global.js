@@ -16,7 +16,7 @@
 	var SYS_SINGLEDIR_POLYLINE_COLOR = '#00A2E8';
 	
 	var SYS_SINGLEDIR_POLYLINE_ICONS = [];
-	
+	var SYS_NODEMARKER_ICON = null;
 	
 	$(document).ready(function() {
 		

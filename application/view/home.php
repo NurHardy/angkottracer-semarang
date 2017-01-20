@@ -73,6 +73,19 @@
   min-height:32px;
 }
 
+#site_floatpanel_extension {
+  position: absolute;
+  top: 10px;
+  right: 180px;
+  z-index: 5;
+  background-color: #fff;
+  padding: 7px;
+  border: 1px solid #999;
+  font-family: 'Roboto','sans-serif';
+  line-height: 30px;
+  min-height:32px;
+}
+
 #site_floatpanel .fpanel_item {display:none;}
 </style>
 <div id="site_mainwrapper">
@@ -162,7 +175,7 @@
 			<div style="text-align: center; font-size:1.1em;"><b>Edge options:</b></div>
 			<b>Distance</b>: <span id="edgeedit_distance">-</span> km.
 			<hr />
-			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return edge_rename();">
+			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return edge_showprops();">
 				<i class="fa fa-pencil"></i> Properties...</a>
 			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return edge_reset();">
 				<i class="fa fa-undo"></i> Reset</a>
@@ -193,6 +206,24 @@
 			<b>Node options:</b><hr />
 			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return node_move_reset();"><i class="fa fa-undo"></i> Reset</a>
 			<a href="#" class="btn btn-danger btn-sm btn-block" onclick="return node_delete();"><i class="fa fa-trash"></i> Delete</a>
+		</div>
+	</div>
+	<div id="site_floatpanel_extension">
+		<div id="fpanel_edgeopts" class="fpanelext_item" style="width: 200px;">
+			<form action="#" method="POST" onsubmit="return edge_propform_onsubmit();">
+				<div class="form-group">
+					<label for="edge_name">Nama Busur/Jalan</label>
+					<input type="text" class="form-control input-sm" name="edge_isreversible"
+						id="edge_name" placeholder="Nama Edge" />
+				</div>
+				<div class="form-group">
+					<label for="edge_isreversible">Arah</label>
+					<input type="text" class="form-control input-sm" name="edge_isreversible"
+						id="edge_isreversible" placeholder="Reversible" />
+				</div>
+				<button type="submit" class="btn btn-primary btn-block btn-sm">Apply</button>
+				<button type="button" class="btn btn-default btn-block btn-sm" onclick="hide_fpanel_ext();">Cancel</button>
+			</form>
 		</div>
 	</div>
 </div>
