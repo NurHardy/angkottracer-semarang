@@ -29,6 +29,7 @@
 		</script>
 		<script src="<?php echo _base_url('/assets/js/bootstrap.min.js'); ?>"></script>
 		<script src="<?php echo _base_url('/assets/js/toastr.min.js'); ?>"></script>
+		<script src="<?php echo _base_url('/assets/js/select2.min.js?v='.APPVER); ?>"></script>
 		<script src="<?php echo _base_url('/assets/js/global.js?v='.APPVER); ?>"></script>
 		<textarea style="display:none;"><?php echo "</body></html>"; ?></textarea>
 	</body>

@@ -39,6 +39,16 @@ function new_edge() {
 	update_gui();
 }
 
+/*
+ * Update GUI current edge editor.
+ */
+function edit_update_() {
+	if (activeEditingPolyLine) {
+		activeEditingPolyLine.setOptions({
+			icons: (activeEditingPolyLine.edgeData.reversible ? [] : SYS_SINGLEDIR_POLYLINE_ICONS)
+        });
+	}
+}
 function edit_edge_setat_(i) {
 	var newLength = google.maps.geometry.spherical.computeLength(activeEditingPolyLine.getPath());
 	$("#edgeedit_distance").html((newLength/1000).toFixed(3));
@@ -118,6 +128,12 @@ function edit_edge(idEdge) {
 				
 				ctxMenu.open(map, activeEditingPolyLine.getPath(), e.vertex);
 			});
+		}
+		edit_update_();
+		if (jsonData.edgedata.reversible) {
+			$('#edge_isreversible').prop('checked', true);
+		} else {
+			$('#edge_isreversible').prop('checked', false);
 		}
 		
 		//-- Hide node markers
@@ -224,10 +240,42 @@ function edge_showprops() {
 	return false;
 }
 
-function edge_propform_onsubmit() {
+function edge_isreversible_onupdate(elmt) {
+	if (currentState != STATE_EDGESELECTED) return false;
+	if (!activeEditingPolyLine) return false;
 	
-	return false;
+	var isCheck = $(elmt).is(":checked");
+	activeEditingPolyLine.edgeData.reversible = isCheck;
+	
+	edit_update_();
 }
+
+function edge_reverse_current() {
+	if (currentState != STATE_EDGESELECTED) return false;
+	if (!activeEditingPolyLine) return false;
+	
+	var edgePath = activeEditingPolyLine.getPath();
+	
+	var newPath = new google.maps.MVCArray();
+	
+	var i; var vCount = edgePath.getLength();
+	for (i = 0; i < vCount; i++) {
+		newPath.push(edgePath.pop());
+	}
+	
+	activeEditingPolyLine.setPath(newPath);
+	
+	edit_edge_setat_(0);
+	edit_edge_setat_(vCount-1);
+	
+	//-- Tukar id node
+	var idNodeFrom = activeEditingPolyLine.edgeData.id_node_from;
+	activeEditingPolyLine.edgeData.id_node_from = activeEditingPolyLine.edgeData.id_node_dest;
+	activeEditingPolyLine.edgeData.id_node_dest = idNodeFrom;
+	
+	edit_update_();
+}
+
 function edge_save() {
 	if (currentState != STATE_EDGESELECTED) return false;
 	if (!activeEditingPolyLine) return false;
@@ -240,7 +288,8 @@ function edge_save() {
 		id: activeEditingPolyLine.id_edge,
 		new_path: encStr,
 		id_node_from: activeEditingPolyLine.edgeData.id_node_from,
-		id_node_dest: activeEditingPolyLine.edgeData.id_node_dest
+		id_node_dest: activeEditingPolyLine.edgeData.id_node_dest,
+		reversible: (activeEditingPolyLine.edgeData.reversible ? 1 : 0)
 	}, function(jsonData){
 		//-- Clone path
 		var decPath = google.maps.geometry.encoding.decodePath(encStr);

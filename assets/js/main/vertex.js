@@ -177,6 +177,7 @@ function node_clear_workspace(oldState, newState) {
 	// Sembunyikan cursor jika status baru bukan untuk 'mengolah' node.
 	if ((newState != STATE_NODESELECTED) && (newState != STATE_MOVENODE)) {
 		if (nodeCursor)	nodeCursor.setVisible(false);
+		clear_lines();
 	}
 	if (oldState == STATE_MOVENODE) {
 		nodeCursor.setDraggable(false);

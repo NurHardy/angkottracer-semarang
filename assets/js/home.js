@@ -55,6 +55,13 @@
 		$('.site_actionpanel, .site_defaultpanel').hide();
 		$('#site_floatpanel .fpanel_item, #fpanel_home, #site_floatpanel_extension, .fpanelext_item').hide();
 		map.setOptions({ draggableCursor: 'url(http://maps.google.com/mapfiles/openhand.cur), move' });
+		
+		//-- Setup active menu
+		$('#homemenu li').removeClass('active');
+		if ((currentState != STATE_ROUTEEDITOR) && (currentState != STATE_ROUTEDEBUG) && (currentState != STATE_DRAWROUTE)) {
+			$('#homemenu_grapheditor').addClass('active');
+		}
+		
 		if (currentState == STATE_PLACENODE) {
 			map.setOptions({ draggableCursor: 'crosshair' });
 			$('#site_panel_placenode').show();
@@ -67,6 +74,17 @@
 		} else if (currentState == STATE_MOVENODE) {
 			map.setOptions({ draggableCursor: 'crosshair' });
 			$('#site_panel_movenode, #fpanel_nodemove').show();
+		
+		} else if (currentState == STATE_ROUTEEDITOR) {
+			$('#homemenu_routeeditor').addClass('active');
+			$('#site_panel_routeeditor_home').show();
+			
+		} else if (currentState == STATE_ROUTEDEBUG) {
+			$('#homemenu_routedebug').addClass('active');
+		} else if (currentState == STATE_DRAWROUTE) {
+			$('#homemenu_routeeditor').addClass('active');
+			$('#site_panel_routeeditor_draw, #fpanel_drawroute').show();
+			
 		} else { // Default
 			$('#fpanel_home').show();
 			$('.site_defaultpanel').show();
@@ -89,6 +107,7 @@
 	function reset_gui() {
 		change_state(STATE_DEFAULT, null);
 		update_gui();
+		return false;
 	}
 	function map_click(e) {
 		if (currentState == STATE_PLACENODE) {
@@ -109,6 +128,10 @@
 		} else if (currentState == STATE_SELECTNODE) {
 			if (typeof(node_selected_callback) === 'function') {
 				node_selected_callback(this);
+			}
+		} else if (currentState == STATE_DRAWROUTE) {
+			if (typeof(routeeditor_vertexclick) === 'function') {
+				routeeditor_vertexclick(this);
 			}
 		}
 	}
@@ -145,6 +168,7 @@
 					prevPosition = jsonData.data.sequence[ctr].position;
 				}
 				
+				init_routedebug();
 			}, "Memproses...", URL_ALGORITHM_AJAX);
 			
 			reset_gui();
@@ -169,6 +193,16 @@
 			activeMarkers.splice(ctr, 1);
 		}
 	}
+	
+	//-- Fungsi global untuk clear array dari polyline
+	function clear_polyline_array(polylineArr) {
+		var dLength = polylineArr.length; var ctr;
+		for (ctr = dLength-1; ctr >= 0; ctr--) {
+			polylineArr[ctr].setMap(null);
+			polylineArr.splice(ctr, 1);
+		}
+	}
+	
 	function clear_lines() {
 		var dLength = activeLines.length;
 		var ctr;
@@ -291,7 +325,7 @@
 			path: edgePath,
 			geodesic: false,
 			strokeColor: (newEdgeData.reversible ? SYS_MULTIDIR_POLYLINE_COLOR : SYS_SINGLEDIR_POLYLINE_COLOR),
-			strokeOpacity: 0.75,
+			strokeOpacity: SYS_EDGEEDITOR_DEF_OPACITY,
 			strokeWeight: 2,
 			clickable: false,
 			map: map,

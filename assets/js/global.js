@@ -11,12 +11,19 @@
 	var STATE_SELECTNODE = 52;
 	var STATE_MOVENODE = 53;
 
+	var STATE_ROUTEEDITOR = 100;
+	var STATE_DRAWROUTE = 101;
+	
+	var STATE_ROUTEDEBUG = 200;
+	
 	//-- SYSTEM CONSTANTS ---------------------
 	var SYS_MULTIDIR_POLYLINE_COLOR = '#0000FF';
 	var SYS_SINGLEDIR_POLYLINE_COLOR = '#00A2E8';
 	
 	var SYS_SINGLEDIR_POLYLINE_ICONS = [];
 	var SYS_NODEMARKER_ICON = null;
+	
+	var SYS_EDGEEDITOR_DEF_OPACITY = 0.75;
 	
 	$(document).ready(function() {
 		

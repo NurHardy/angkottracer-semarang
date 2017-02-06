@@ -15,6 +15,7 @@
 		<link rel="stylesheet" href="<?php echo _base_url('/assets/css/font-awesome.min.css'); ?>" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php echo _base_url('/assets/css/toastr.min.css'); ?>" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php echo _base_url('/assets/css/global.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo _base_url('/assets/css/select2.min.css'); ?>" type="text/css" media="screen" />
 		
 		<script src="<?php echo _base_url('/assets/js/jquery.min.js'); ?>"></script>
 	</head>
