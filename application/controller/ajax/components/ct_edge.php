@@ -62,7 +62,12 @@ function _data_ajax_edge($actionVerb) {
 					'id' => $newId,
 					'pos1' => $nodePos1,
 					'pos2' => $nodePos2,
-					'reversible' => ($newEdgeData['reversible'])
+					'edgedata' => array(
+							'edge_name' => null,
+							'id_node_from' => $newEdgeData['id_node_from'],
+							'id_node_dest' => $newEdgeData['id_node_dest'],
+							'reversible' => $newEdgeData['reversible']
+					)
 			);
 			return array(
 					'status' => 'ok',
@@ -92,7 +97,12 @@ function _data_ajax_edge($actionVerb) {
 		if ($edgeItem) {
 			$edgeInfo = array(
 					'id' => $edgeItem['id_edge'],
-					'reversible' => ($edgeItem['reversible'] == 1)
+					'edgedata' => array(
+						'edge_name' => $edgeItem['edge_name'],
+						'id_node_from' => $edgeItem['id_node_from'],
+						'id_node_dest' => $edgeItem['id_node_dest'],
+						'reversible' => ($edgeItem['reversible'] == 1),
+					)
 			);
 
 			//-- Fetch node info
@@ -109,6 +119,10 @@ function _data_ajax_edge($actionVerb) {
 							'lat' => floatval($nodeFromData['location_lat']),
 							'lng' => floatval($nodeFromData['location_lng'])
 					),
+					'node_data' => array(
+							'node_name' => $nodeFromData['node_name'],
+							'node_type' => $nodeFromData['node_type']
+					)
 			);
 			$edgeInfo['dest'] = array(
 					'id_node' => $nodeDestData['id_node'],
@@ -116,15 +130,22 @@ function _data_ajax_edge($actionVerb) {
 							'lat' => floatval($nodeDestData['location_lat']),
 							'lng' => floatval($nodeDestData['location_lng'])
 					),
+					'node_data' => array(
+							'node_name' => $nodeDestData['node_name'],
+							'node_type' => $nodeDestData['node_type']
+					)
 			);
 			require_once APP_PATH.'/helper/geo-tools.php';
+			require_once APP_PATH.'/helper/gmap-tools.php';
 
 			$polyLineData = mysql_to_latlng_coords($edgeItem['polyline_data']);
-
-			$edgeInfo['polyline_data'] = $polyLineData;
+			$decPolyLine = encode_polyline($polyLineData);
+			
+			$edgeInfo['polyline_data'] = $decPolyLine;
+			
 			return array(
 					'status' => 'ok',
-					'edgedata' => $edgeInfo
+					'data' => $edgeInfo
 			);
 		} else {
 			return generate_error("Edge data not found.");
@@ -154,14 +175,18 @@ function _data_ajax_edge($actionVerb) {
 		return generate_error("Query failed.");
 			
 	} else if ($actionVerb == 'save') {
-		// TODO: Ubah posisi node from dan node dest saat selesai edit edge...
-			
 		$encPolyLine = $_POST['new_path'];
 		$idEdge = $_POST['id'];
 		$idNodeFrom = $_POST['id_node_from'];
 		$idNodeDest = $_POST['id_node_dest'];
+		$edgeName = (isset($_POST['edge_name']) ? $_POST['edge_name'] : null);
 		$isReversible = ($_POST['reversible'] == 1 ? true : false);
-			
+		
+		//-- Validation...
+		//if (empty($edgeName)) {
+		//	return generate_error("Please enter edge name.");
+		//}
+		
 		require_once APP_PATH.'/helper/gmap-tools.php';
 		require_once APP_PATH.'/helper/geo-tools.php';
 		require_once APP_PATH.'/model/node.php';
@@ -194,6 +219,7 @@ function _data_ajax_edge($actionVerb) {
 			
 		$polyLineSql = latlng_coords_to_mysql($polyLineData);
 		$updateData = array(
+				'edge_name' => _db_to_query($edgeName),
 				'id_node_from' => intval($idNodeFrom),
 				'id_node_dest' => intval($idNodeDest),
 				'polyline' => db_geom_from_text($polyLineSql),
@@ -251,8 +277,11 @@ function _data_ajax_edge($actionVerb) {
 					'status' => 'ok',
 					'new_node_id' => strval($newId),
 					'new_node_pos' => $polyLineData[$idxVertex],
-					'new_node_name' => 'Untitled',
-					'new_polyline' => $newPolyline
+					'new_polyline' => $newPolyline,
+					'new_node_data' => array(
+							'node_name' => 'Untitled',
+							'node_type' => 0
+					)
 			));
 		} else {
 			return generate_error("Process failed: ".$errorMsg);
@@ -336,7 +365,7 @@ function _data_ajax_edge($actionVerb) {
 						'data' => $responseFeedback
 				));
 					
-				//$jsonurl = "https://maps.google.com/maps/api/geocode/json?sensor=false&address=1600+Pennsylvania+Avenue+Northwest+Washington+DC+20500";
-				//echo $json = file_get_contents($jsonurl);
+//$jsonurl = "https://maps.google.com/maps/api/geocode/json?sensor=false&address=1600+Pennsylvania+Avenue+Northwest+Washington+DC+20500";
+//echo $json = file_get_contents($jsonurl);
 	}
 }

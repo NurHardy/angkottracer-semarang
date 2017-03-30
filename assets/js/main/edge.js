@@ -21,17 +21,19 @@ function new_edge() {
 				clickable: false,
 				map: map
 			}));
-			
+			/*
 			reversibleLabel = (response.data.reversible?"Yes":"No");
 			$("#table_edge tbody").append(
 					'<tr><td>'+response.data.id+
 					'</td><td>'+response.data.distance+
 					'</td><td>'+reversibleLabel+'</td><td>edit | <a href="#">hapus</a></td></tr>');
+			*/
 			
 			//-- Saved and add into edge network
-			_gui_push_edge(response.data.id, [focusedMarker.position, selectedMarker.position], response.data.reversible);
+			_gui_push_edge(response.data.id, [focusedMarker.position, selectedMarker.position], response.data.edgedata);
 			hide_modal();
-			reset_gui();
+			
+			edit_edge_do(response.data.id);
 		}, function(){
 			
 		});
@@ -59,130 +61,147 @@ function edit_edge_setat_(i) {
 		if (labelMarkers[1]) labelMarkers[1].setPosition(activeEditingPolyLine.getPath().getAt(i));
 	}
 }
+
+function edit_edge_do(idEdge) {
+	change_state(STATE_EDGESELECTED, edge_clear_workspace);
+	clear_lines();
+	
+	//-- Hide editing edge
+	var idActivePolyline = _get_idpolyline_by_idedge(idEdge);
+	if (idActivePolyline) {
+		edgeNetworkPreview[idActivePolyline].setVisible(false);
+	} else {
+		return false;
+	}
+	
+	var polyLineData = edgeNetworkPreview[idActivePolyline].getPath();
+	
+	//-- Draw editable polylines in the map
+	if (activeEditingPolyLine) {
+		activeEditingPolyLine.setMap(map);
+		activeEditingPolyLine.setPath(polyLineData);
+		activeEditingPolyLine.id_edge = idEdge;
+		
+		activeEditingPolyLine.edgeData.id_node_from = edgeNetworkPreview[idActivePolyline].edgeData.id_node_from;
+		activeEditingPolyLine.edgeData.id_node_dest = edgeNetworkPreview[idActivePolyline].edgeData.id_node_dest;
+		activeEditingPolyLine.edgeData.reversible = edgeNetworkPreview[idActivePolyline].edgeData.reversible;
+		
+		google.maps.event.addListener(activeEditingPolyLine.getPath(), 'set_at', edit_edge_setat_);
+	} else {
+		activeEditingPolyLine = new google.maps.Polyline({
+			path: polyLineData,
+			geodesic: false,
+			strokeColor: '#162953',
+			strokeOpacity: 1.0,
+			strokeWeight: 2,
+			clickable: false,
+			editable: true,
+			map: map,
+			id_edge: idEdge,
+			edgeData: {
+				id_node_from: edgeNetworkPreview[idActivePolyline].edgeData.id_node_from,
+				id_node_dest: edgeNetworkPreview[idActivePolyline].edgeData.id_node_dest,
+				reversible: edgeNetworkPreview[idActivePolyline].edgeData.reversible
+			}
+		});
+		
+		//-- Setup editing context menu
+		ctxMenu = new VertexContextMenu();
+		google.maps.event.addListener(activeEditingPolyLine.getPath(), 'set_at', edit_edge_setat_);
+		google.maps.event.addListener(activeEditingPolyLine, 'rightclick', function(e) {
+			// Check if click was on a vertex control point
+			if (e.vertex == undefined) {
+				return;
+			}
+			
+			// Vertex pertama dan terakhir tidak bisa dihapus...
+			if ((e.vertex == 0) || (e.vertex >= activeEditingPolyLine.getPath().getLength() -1)) {
+				return;
+			}
+			
+			ctxMenu.open(map, activeEditingPolyLine.getPath(), e.vertex);
+		});
+	}
+	
+	edit_update_();
+	
+	$('#edge_name').val(edgeNetworkPreview[idActivePolyline].edgeData.edge_name);
+	if (edgeNetworkPreview[idActivePolyline].edgeData.reversible) {
+		$('#edge_isreversible').prop('checked', true);
+	} else {
+		$('#edge_isreversible').prop('checked', false);
+	}
+	
+	//-- Hide node markers
+	activeMarkers.map(function(curMarker, i){
+		curMarker.setVisible(false);
+	});
+	markerCluster.clearMarkers();
+	
+	//-- Start and end marker
+	if (labelMarkers[0]) {
+		labelMarkers[0].setPosition(polyLineData.getAt(0));
+		labelMarkers[0].setMap(map);
+		labelMarkers[0].setVisible(true);
+	} else {
+		labelMarkers[0] = new google.maps.Marker({
+			position: polyLineData.getAt(0),
+			map: map,
+			label: 'A',
+			title: 'Start',
+			zIndex: -1,
+			clickable: false
+		});
+	}
+	
+	var lastId = polyLineData.getLength()-1;
+	if (labelMarkers[1]) {
+		labelMarkers[1].setPosition(polyLineData.getAt(lastId));
+		labelMarkers[1].setMap(map);
+		labelMarkers[1].setVisible(true);
+	} else {
+		labelMarkers[1] = new google.maps.Marker({
+			position: polyLineData.getAt(lastId),
+			map: map,
+			label: 'B',
+			title: 'End',
+			zIndex: -1,
+			clickable: false
+		});
+	}
+	
+	edit_edge_setat_();
+	
+	//-- Pan viewport
+	var bounds = new google.maps.LatLngBounds();
+	for (var i = 0; i < polyLineData.length; i++) {
+	    bounds.extend(polyLineData.getAt(i));
+	}
+	map.fitBounds(bounds);
+	
+	update_gui(false);
+}
 function edit_edge(idEdge) {
 	//-- Fetch data
 	_ajax_send({
 		verb: 'edge.getbyid',
 		id: idEdge
 	}, function(jsonData){
-		change_state(STATE_EDGESELECTED, edge_clear_workspace);
-		clear_lines();
-		
-		//-- Hide editing edge
-		var idActivePolyline = _get_idpolyline_by_idedge(idEdge);
-		if (idActivePolyline) {
-			edgeNetworkPreview[idActivePolyline].setVisible(false);
-		}
-		
 		//-- Modify existing node
-		_gui_modify_node(jsonData.edgedata.from.id_node, new google.maps.LatLng(jsonData.edgedata.from.position));
-		_gui_modify_node(jsonData.edgedata.dest.id_node, new google.maps.LatLng(jsonData.edgedata.dest.position));
+		_gui_modify_node(jsonData.data.from.id_node, new google.maps.LatLng(jsonData.data.from.position),
+				jsonData.data.from.node_data);
+		_gui_modify_node(jsonData.data.dest.id_node, new google.maps.LatLng(jsonData.data.dest.position),
+				jsonData.data.dest.node_data);
 		
 		//-- Add to editing line
-		var polyLineData = jsonData.edgedata.polyline_data;
-		polyLineData.unshift(jsonData.edgedata.from.position);
-		polyLineData.push(jsonData.edgedata.dest.position);
+		var polyLineData = google.maps.geometry.encoding.decodePath(jsonData.data.polyline_data);
 		
-		//-- Draw editable polylines in the map
-		if (activeEditingPolyLine) {
-			activeEditingPolyLine.setMap(map);
-			activeEditingPolyLine.setPath(polyLineData);
-			activeEditingPolyLine.id_edge = idEdge;
-			
-			activeEditingPolyLine.edgeData.id_node_from = jsonData.edgedata.from.id_node;
-			activeEditingPolyLine.edgeData.id_node_dest = jsonData.edgedata.dest.id_node;
-			activeEditingPolyLine.edgeData.reversible = jsonData.edgedata.reversible;
-			
-			google.maps.event.addListener(activeEditingPolyLine.getPath(), 'set_at', edit_edge_setat_);
-		} else {
-			activeEditingPolyLine = new google.maps.Polyline({
-				path: polyLineData,
-				geodesic: false,
-				strokeColor: '#162953',
-				strokeOpacity: 1.0,
-				strokeWeight: 2,
-				clickable: false,
-				editable: true,
-				map: map,
-				id_edge: idEdge,
-				edgeData: {
-					id_node_from: jsonData.edgedata.from.id_node,
-					id_node_dest: jsonData.edgedata.dest.id_node,
-					reversible: jsonData.edgedata.reversible
-				}
-			});
-			
-			//-- Setup editing context menu
-			ctxMenu = new VertexContextMenu();
-			google.maps.event.addListener(activeEditingPolyLine.getPath(), 'set_at', edit_edge_setat_);
-			google.maps.event.addListener(activeEditingPolyLine, 'rightclick', function(e) {
-				// Check if click was on a vertex control point
-				if (e.vertex == undefined) {
-					return;
-				}
-				
-				// Vertex pertama dan terakhir tidak bisa dihapus...
-				if ((e.vertex == 0) || (e.vertex >= activeEditingPolyLine.getPath().getLength() -1)) {
-					return;
-				}
-				
-				ctxMenu.open(map, activeEditingPolyLine.getPath(), e.vertex);
-			});
-		}
-		edit_update_();
-		if (jsonData.edgedata.reversible) {
-			$('#edge_isreversible').prop('checked', true);
-		} else {
-			$('#edge_isreversible').prop('checked', false);
-		}
+		polyLineData.unshift(jsonData.data.from.position);
+		polyLineData.push(jsonData.data.dest.position);
 		
-		//-- Hide node markers
-		activeMarkers.map(function(curMarker, i){
-			curMarker.setVisible(false);
-		});
-		markerCluster.clearMarkers();
+		_gui_modify_edge(jsonData.data.id, polyLineData, jsonData.data.edgedata);
 		
-		//-- Start and end marker
-		if (labelMarkers[0]) {
-			labelMarkers[0].setPosition(jsonData.edgedata.from.position);
-			labelMarkers[0].setMap(map);
-			labelMarkers[0].setVisible(true);
-		} else {
-			labelMarkers[0] = new google.maps.Marker({
-				position: jsonData.edgedata.from.position,
-				map: map,
-				label: 'A',
-				title: 'Start',
-				zIndex: -1,
-				clickable: false
-			});
-		}
-		
-		if (labelMarkers[1]) {
-			labelMarkers[1].setPosition(jsonData.edgedata.dest.position);
-			labelMarkers[1].setMap(map);
-			labelMarkers[1].setVisible(true);
-		} else {
-			labelMarkers[1] = new google.maps.Marker({
-				position: jsonData.edgedata.dest.position,
-				map: map,
-				label: 'B',
-				title: 'End',
-				zIndex: -1,
-				clickable: false
-			});
-		}
-		
-		edit_edge_setat_();
-		
-		//-- Pan viewport
-		var bounds = new google.maps.LatLngBounds();
-		for (var i = 0; i < polyLineData.length; i++) {
-		    bounds.extend(polyLineData[i]);
-		}
-		map.fitBounds(bounds);
-		
-		update_gui(false);
+		edit_edge_do(idEdge);
 	}, "Memuat...", URL_DATA_AJAX);
 }
 
@@ -280,6 +299,7 @@ function edge_save() {
 	if (currentState != STATE_EDGESELECTED) return false;
 	if (!activeEditingPolyLine) return false;
 	
+	var edgeName = $('#edge_name').val();
 	var edgePath = activeEditingPolyLine.getPath();
 	var encStr = google.maps.geometry.encoding.encodePath(edgePath);
 	
@@ -287,6 +307,7 @@ function edge_save() {
 		verb: 'edge.save',
 		id: activeEditingPolyLine.id_edge,
 		new_path: encStr,
+		edge_name: edgeName,
 		id_node_from: activeEditingPolyLine.edgeData.id_node_from,
 		id_node_dest: activeEditingPolyLine.edgeData.id_node_dest,
 		reversible: (activeEditingPolyLine.edgeData.reversible ? 1 : 0)
@@ -299,8 +320,8 @@ function edge_save() {
 		
 		//-- Geser node ujung, dan update edge yang adjacent
 		var lastIdx = decPath.length - 1;
-		_gui_modify_node(activeEditingPolyLine.edgeData.id_node_from, decPath[0]);
-		_gui_modify_node(activeEditingPolyLine.edgeData.id_node_dest, decPath[lastIdx]);
+		_gui_modify_node(activeEditingPolyLine.edgeData.id_node_from, decPath[0], {});
+		_gui_modify_node(activeEditingPolyLine.edgeData.id_node_dest, decPath[lastIdx], {});
 		
 		toastr.success('Edge successfully saved.');
 	}, "Menyimpan...", URL_DATA_AJAX);
@@ -416,25 +437,25 @@ function edge_break(vertexIdx) {
 		new_path: encStr,
 		vertex_idx: vertexIdx
 	}, function(jsonData){
-		_gui_push_node(jsonData.new_node_id, jsonData.new_node_pos,
-				'#'+jsonData.new_node_id+': '+jsonData.new_node_name);
+		_gui_push_node(jsonData.new_node_id, jsonData.new_node_pos, jsonData.new_node_data);
 		
 		var poly1 = google.maps.geometry.encoding.decodePath(jsonData.new_polyline[0].polyline);
 		var poly2 = google.maps.geometry.encoding.decodePath(jsonData.new_polyline[1].polyline);
 		
 		//-- Jika edge lama direplace
 		if (activeEditingPolyLine.id_edge == jsonData.new_polyline[0].id_edge) {
-			_gui_modify_edge(activeEditingPolyLine.id_edge, poly1, {
-				edge_name: jsonData.new_polyline[0].edge_name,
-				id_node_dest: jsonData.new_node_id,
-				reversible: jsonData.new_polyline[0].reversible
-			});
-			
 			//-- Update neighbor cache
 			var idPolyline = _get_idpolyline_by_idedge(activeEditingPolyLine.id_edge);
 			var idNodeFrom = edgeNetworkPreview[idPolyline].edgeData.id_node_from;
 			var idNodeDest = edgeNetworkPreview[idPolyline].edgeData.id_node_dest;
+
+			// New vertex neighbor
+			neighborNodeCache_[jsonData.new_node_id].push({
+				id_node_adj: idNodeFrom,
+				id_edge: activeEditingPolyLine.id_edge
+			});
 			
+			// Old edge neighbor
 			neighborNodeCache_[idNodeFrom].find(function(elmt, idx){
 				if (elmt.id_edge == activeEditingPolyLine.id_edge) {
 					neighborNodeCache_[idNodeFrom][idx].id_node_adj = jsonData.new_node_id;
@@ -449,6 +470,13 @@ function edge_break(vertexIdx) {
 					return true;
 				} else return false;
 			});
+			
+			//-- Update existing edge
+			_gui_modify_edge(activeEditingPolyLine.id_edge, poly1, {
+				edge_name: jsonData.new_polyline[0].edge_name,
+				id_node_dest: jsonData.new_node_id,
+				reversible: jsonData.new_polyline[0].reversible
+			});
 		} else {
 			_gui_push_edge(jsonData.new_polyline[0].id_edge, poly1, {
 				edge_name: edgeNetworkPreview[idPolyline].edgeData.edge_name,
@@ -457,23 +485,12 @@ function edge_break(vertexIdx) {
 				reversible: jsonData.new_polyline[0].reversible
 			});
 		}
+		
 		_gui_push_edge(jsonData.new_polyline[1].id_edge, poly2, {
 			edge_name: jsonData.new_node_name,
 			id_node_from: jsonData.new_node_id,
 			id_node_dest: idNodeDest,
 			reversible: jsonData.new_polyline[1].reversible
-		});
-		
-		//-- Modify neighbor cache
-		var idPolyline = _get_idpolyline_by_idedge(activeEditingPolyLine.id_edge);
-		var idNodeFrom = edgeNetworkPreview[idPolyline].edgeData.id_node_from;
-		var idNodeDest = edgeNetworkPreview[idPolyline].edgeData.id_node_dest;
-		
-		neighborNodeCache_[idNodeFrom].find(function(elmt, idx){
-			if (elmt.id_edge == activeEditingPolyLine.id_edge) {
-				neighborNodeCache_[idNodeFrom][idx].id_node_adj = jsonData.new_node_id;
-				return true;
-			} else return false;
 		});
 		
 		toastr.success('Edge successfully breaked.');

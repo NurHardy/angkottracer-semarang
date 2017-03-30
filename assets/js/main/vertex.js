@@ -21,9 +21,10 @@ function _new_vertex(e) {
 		'name': 'node.add',
 		'data': {'lat': clickLat, 'lng': clickLng}
 	}, function(response){
-		_gui_push_node(response.data.id, response.data.position, {});
+		_gui_push_node(response.data.id, response.data.position, response.data.node_data);
 		hide_modal();
-		reset_gui();
+		
+		focus_node_do(response.data.id);
 	}, function(){
 		
 	});

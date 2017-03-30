@@ -124,6 +124,25 @@ function _db_to_query($object) {
 }
 
 /**
+ * Generate string query untuk clausa WHERE
+ * @param string|array $condition Array kondisi key =&gt; value
+ * @return string String query. Kembali string kosong jika ada kesalahan.
+ */
+function _db_where($condition) {
+	$queryString = "";
+	if (is_array($condition)) {
+		foreach ($condition as $fName => $fValue) {
+			$queryString .= '(' . $fName . '=';
+			$queryString .= ($fValue) . ") AND ";
+		}
+		$qLength = strlen($queryString);
+		$queryString = substr($queryString, 0, $qLength-5);
+	} else if (is_string($condition)) {
+		$queryString = $condition;
+	}
+	return $queryString;
+}
+/**
  * Generate query fielda dari array (a AS x, b AS y)
  * @param array $fieldArray Array asosiatif dari field yang ingin diquerykan (x =&gt; A, y =&gt; B)
  * @return string Query field hasil generate
@@ -155,23 +174,18 @@ function db_geom_from_text($geomText) {
  * @param string $tableName Nama tabel
  * @param array $condition Array asosiatif (field =&gt; nilai) kondisi where. NULL untuk semua kondisi
  * @param string $fields Field yang akan diselect. Default: '*'
+ * @param string|null $midQuery Query sisipan, diletakkan setelah FROM dan sebelum WHERE. Default: null
  * @return string Query hasil generate
  * @author Nur Hardyanto
  */
-function db_select($tableName, $condition = null, $fields = '*') {
+function db_select($tableName, $condition = null, $fields = '*', $midQuery = null) {
 	$queryString = "SELECT ".$fields." FROM ".$tableName;
+	if (!empty($midQuery) && is_string($midQuery)) {
+		$queryString .= $midQuery;
+	}
 	if (!empty($condition)) {
 		$queryString .= ' WHERE ';
-		if (is_array($condition)) {
-			foreach ($condition as $fName => $fValue) {
-				$queryString .= '(' . $fName . '=';
-				$queryString .= ($fValue) . ") AND ";
-			}
-			$qLength = strlen($queryString);
-			$queryString = substr($queryString, 0, $qLength-5);
-		} else if (is_string($condition)) {
-			$queryString .= $condition;
-		}
+		$queryString .= _db_where($condition);
 	}
 	return $queryString;
 }
@@ -199,6 +213,44 @@ function db_insert_into($tableName, $fields = null) {
 		$queryString .= ' (' . $keys . ') VALUES';
 		$queryString .= ' (' . $values . ')';
 
+	}
+	return $queryString;
+}
+
+
+/**
+ * Generate query INSERT INTO (batch)
+ * @param string $tableName Nama tabel
+ * @param array $fieldKeys Array dari nama field
+ * @param array[] $fieldValues Array dari array dari nilai field
+ * @return string Query hasil generate
+ * @author Nur Hardyanto
+ */
+function db_insert_into_batch($tableName, $fieldKeys, $fieldValues) {
+	$queryString = "INSERT INTO ".$tableName;
+
+	if (!empty($fieldKeys) && is_array($fieldKeys) && is_array($fieldValues)) {
+		//-- Field names
+		$keys = "";
+		foreach ($fieldKeys as $fName) {
+			$keys .= $fName.',';
+		}
+		$keys = trim($keys, ',');
+		
+		$queryString .= ' (' . $keys . ') VALUES ';
+		
+		//-- Field values
+		foreach ($fieldValues as $itemValue) {
+			$tmpString = "";
+			foreach ($itemValue as $fValue) {
+				$tmpString .= ($fValue).",";
+			}
+			$tmpString = trim($tmpString, ',');
+			
+			$queryString .= '(' . $tmpString . '),';
+		}
+		
+		$queryString = trim($queryString, ',');
 	}
 	return $queryString;
 }

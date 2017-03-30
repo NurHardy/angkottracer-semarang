@@ -13,10 +13,13 @@ function _generate_init_data() {
 	foreach ($nodeData as $nodeItem) {
 		$nodes[$ctrId] = array(
 				'id' => $nodeItem['id_node'],
-				'name' => $nodeItem['node_name'],
 				'position' => array(
 						'lat' => floatval($nodeItem['location_lat']),
-						'lng' => floatval($nodeItem['location_lng']))
+						'lng' => floatval($nodeItem['location_lng'])),
+				'node_data' => array(
+						'node_name' => $nodeItem['node_name'],
+						'node_type' => $nodeItem['node_type']
+				)
 		);
 
 		$nodeMap[$nodeItem['id_node']] = $ctrId;
@@ -77,10 +80,13 @@ function _data_ajax_node($actionVerb) {
 		if ($nodeItem) {
 			$nodeInfo = array(
 					'id' => $nodeItem['id_node'],
-					'name' => $nodeItem['node_name'],
 					'position' => array(
 							'lat' => floatval($nodeItem['location_lat']),
-							'lng' => floatval($nodeItem['location_lng']))
+							'lng' => floatval($nodeItem['location_lng'])),
+					'node_data' => array(
+							'node_name' => $nodeItem['node_name'],
+							'node_type' => $nodeItem['node_type']
+					)
 			);
 			require_once APP_PATH.'/model/edge.php';
 			require_once APP_PATH.'/helper/gmap-tools.php';
@@ -175,6 +181,7 @@ function _data_ajax_node($actionVerb) {
 		$nodeName = $_POST['node_name'];
 		$nodePosLat = floatval($nodeData['lat']);
 		$nodePosLng = floatval($nodeData['lng']);
+		$nodeType = (isset($_POST['node_type']) ? $_POST['node_type'] : 0);
 			
 		require_once APP_PATH.'/helper/geo-tools.php';
 			
@@ -190,10 +197,13 @@ function _data_ajax_node($actionVerb) {
 		if ($newId = save_node($nodeDataQuery, -1)) {
 			$savedNodeData = array(
 					'id' => $newId,
-					'name' => $nodeName,
 					'position' => array(
 							'lat' => $nodePosLat,
 							'lng' => $nodePosLng
+					),
+					'node_data' => array(
+							'node_name' => $nodeName,
+							'node_type' => $nodeType
 					)
 			);
 			return array(

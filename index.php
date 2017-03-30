@@ -1,4 +1,8 @@
 <?php
+
+header("Location: rest/public/editor");
+exit;
+
 //========================================================================
 //							ANGKOT TRACER
 //					by Muhammad Nur Hardyanto

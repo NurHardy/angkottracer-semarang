@@ -156,7 +156,7 @@
 			<button onclick="return new_route();" class="btn btn-default btn-block">
 				<i class="fa fa-plus"></i> Create New Route...</button>
 			<button onclick="return select_route();" class="btn btn-default btn-block">
-				<i class="fa fa-plus"></i> Select Route...</button>
+				<i class="fa fa-folder-open"></i> Select Route...</button>
 		</div>
 		<div id="site_panel_routeeditor_draw" class="site_actionpanel">
 			<form action="#" method="POST" onsubmit="return route_save(this);">
@@ -201,8 +201,10 @@
 				</table>
 			</div> -->
 			
-			<button class="btn btn-primary btn-block" onclick="new_edge();">Connect to Vertex...</button>
-			<button class="btn btn-default btn-block" onclick="get_direction();">Get Direction...</button>
+			<button class="btn btn-primary btn-block" onclick="new_edge();">
+				<i class="fa fa-crosshairs"></i> Connect to Vertex...</button>
+			<button class="btn btn-default btn-block" onclick="get_direction();">
+				<i class="fa fa-car"></i> Get Direction...</button>
 			
 			<form action="#" id="site_nodeform" style="display:none;">
 				<label for="site_nodedest_txt">Destination Node</label>
@@ -214,6 +216,10 @@
 				
 			</form>
 		</div><!-- End panel -->
+		
+		<div id="site_panel_routedebug" class="site_defaultpanel">
+			<pre id="routedebug_logpanel" style="max-height: 350px;"></pre>
+		</div>
 	</div>
 	<div id="site_googlemaps"></div>
 	
@@ -280,23 +286,37 @@
 			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return node_move_reset();"><i class="fa fa-undo"></i> Reset</a>
 			<a href="#" class="btn btn-danger btn-sm btn-block" onclick="return node_delete();"><i class="fa fa-trash"></i> Delete</a>
 		</div>
+		<!-- 
+		<div id="fpanel_searchresult" class="fpanel_item" style="width: 300px;">
+			<div class="list-group">
+				<a href="#" class="list-group-item">
+					<div class="media">
+					  <div class="media-left">
+					  	<i class="fa fa-bus fa-2x"></i>
+					  </div>
+					  <div class="media-body">
+					    Test<br />
+					    Mlampah
+					  </div>
+					</div>
+				</a>
+				<a href="#" class="list-group-item">
+					<div class="media">
+					  <div class="media-left">
+					  	<i class="fa fa-male fa-2x"></i>
+					  </div>
+					  <div class="media-body">
+					    Test<br />
+					    Mlampah
+					  </div>
+					</div>
+				</a>
+			</div>
+		</div> -->
 	</div>
 	<div id="site_floatpanel_extension">
-		<div id="fpanel_edgeopts" class="fpanelext_item" style="width: 200px;">
-			<form action="#" method="POST" onsubmit="return edge_propform_onsubmit();">
-				<div class="form-group">
-					<label for="edge_name">Nama Busur/Jalan</label>
-					<input type="text" class="form-control input-sm" name="edge_isreversible"
-						id="edge_name" placeholder="Nama Edge" />
-				</div>
-				<div class="form-group">
-					<label for="edge_isreversible">Arah</label>
-					<input type="text" class="form-control input-sm" name="edge_isreversible"
-						id="edge_isreversible" placeholder="Reversible" />
-				</div>
-				<button type="submit" class="btn btn-primary btn-block btn-sm">Apply</button>
-				<button type="button" class="btn btn-default btn-block btn-sm" onclick="hide_fpanel_ext();">Cancel</button>
-			</form>
+		<div id="fpanel_edgeopts" class="fpanelext_item" style="width: 200px; display:none;">
+			
 		</div>
 	</div>
 </div>

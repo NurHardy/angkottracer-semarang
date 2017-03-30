@@ -80,6 +80,7 @@
 			$('#site_panel_routeeditor_home').show();
 			
 		} else if (currentState == STATE_ROUTEDEBUG) {
+			$('#site_panel_routedebug, #fpanel_searchresult').show();
 			$('#homemenu_routedebug').addClass('active');
 		} else if (currentState == STATE_DRAWROUTE) {
 			$('#homemenu_routeeditor').addClass('active');
@@ -148,6 +149,7 @@
 			}, function(jsonData){
 				clear_dirlines();
 				toastr.success('Done. ' + jsonData.data.benchmark);
+				$('#routedebug_logpanel').html(jsonData.data.routeinfo);
 				
 				var edgeCount = jsonData.data.sequence.length;
 				var prevPosition = null;
@@ -246,8 +248,16 @@
 	 **************************************/
 	
 	//-- Tambah node ke GUI
-	function _gui_push_node(idNode, latLngPos, nodeName) {
+	function _gui_push_node(idNode, latLngPos, newNodeData) {
 		var newId = activeMarkers.length;
+		var newIcon = null;
+		if (newNodeData.node_type == 1) {
+			newIcon = SYS_NODEMARKER_BUSSHELTER;
+		} else {
+			newIcon = SYS_NODEMARKER_ICON;
+		}
+		
+		var nodeName = ((newNodeData.node_name != undefined) ? newNodeData.node_name : "Unnamed");
 		
 		var tmpMarker = new google.maps.Marker({
 			id_node: idNode,
@@ -255,7 +265,8 @@
 			position: latLngPos,
 			map: map,
 			title: nodeName,
-			icon: SYS_NODEMARKER_ICON,
+			icon: newIcon,
+			nodeData: newNodeData
 		});
 		
 		activeMarkers.push(tmpMarker);
@@ -286,6 +297,19 @@
 			activeMarkers.splice(selectedIdMarker, 1);
 			rebuild_markermap_();
 		} else {
+			if (newNodeData.node_type != undefined) {
+				var newIcon = null;
+				if (newNodeData.node_type == 1) {
+					newIcon = SYS_NODEMARKER_BUSSHELTER;
+				} else {
+					newIcon = SYS_NODEMARKER_ICON;
+				}
+				
+				activeMarkers[selectedIdMarker].setOptions({
+					icon: newIcon
+				});
+			}
+			
 			if (latLngPos != undefined) {
 				activeMarkers[selectedIdMarker].setPosition(latLngPos);
 				
@@ -352,6 +376,21 @@
 		});
 	}
 	
+	function panto_edge(idEdge) {
+		var idPoly = _get_idpolyline_by_idedge(idEdge);
+		if (idPoly == null) return null;
+		
+		var pathObj = edgeNetworkPreview[idPoly].getPath();
+		var iLen = pathObj.getLength();
+		
+		//-- Pan viewport
+		var bounds = new google.maps.LatLngBounds();
+		for (var i = 0; i < iLen; i++) {
+		    bounds.extend(pathObj.getAt(i));
+		}
+		map.fitBounds(bounds);
+		return false;
+	}
 	//-- Translate idEdge ke idPolyline
 	function _get_idpolyline_by_idedge(idEdge) {
 		if (idEdge in edgePolylineMap_) {
@@ -417,9 +456,9 @@
 			var ctr;
 			for (ctr=0; ctr < dLength; ctr++) {
 				_gui_push_node(jsonData.data[ctr].id, jsonData.data[ctr].position,
-						'#'+jsonData.data[ctr].id+': '+jsonData.data[ctr].name);
-				$('#site_nodeselector select[name=nodeid]').append(
-					'<option value="'+(jsonData.data[ctr].id)+'">'+jsonData.data[ctr].name+'</option>');
+						jsonData.data[ctr].node_data);
+				//$('#site_nodeselector select[name=nodeid]').append(
+				//	'<option value="'+(jsonData.data[ctr].id)+'">'+jsonData.data[ctr].name+'</option>');
 			}
 			
 			//------- Load edge network preview
@@ -450,6 +489,12 @@
 			size: new google.maps.Size(9, 9),
 			origin: new google.maps.Point(0, 0),
 			anchor: new google.maps.Point(5, 5)
+		};
+		SYS_NODEMARKER_BUSSHELTER = {
+				url: MARKERBASE + 'bus-shelter.gif',
+				size: new google.maps.Size(15, 15),
+				origin: new google.maps.Point(0, 0),
+				anchor: new google.maps.Point(7, 7)
 		};
 		
 		//-- Load components
