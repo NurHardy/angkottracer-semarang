@@ -32,6 +32,10 @@ class DialogControl {
 			
 			$this->_data['formId'] = 'modal_form';
 			$this->_data['nodeData'] = json_encode($postData['data']);
+			$this->_data['idNodeToConnect'] = 0;
+			if (!empty($postData['connect_to'])) {
+				$this->_data['idNodeToConnect'] = intval($postData['connect_to']);
+			}
 			$this->_data['nodeTypeList'] = $nodeModel->get_node_types();
 			
 			$this->_data['formContent'] = $this->renderer->fetch('forms/form_node.php', $this->_data);

@@ -9,14 +9,25 @@
 	if (!isset($selectedNodeType)) $selectedNodeType = 0;
 ?>
 <script>
-function init_modal(onSubmitSuccess, onCancel) {
+function init_modal(onSubmitSuccess, onCancel, preOnSubmit) {
 	$('#modal_form_add_node').submit(function(){
-		var postData = $(this).serialize();
-		_ajax_send(postData, function(response){
-			if (typeof(onSubmitSuccess) === 'function') {
-				onSubmitSuccess(response);
-			}
-		}, "Memproses", AJAX_REQ_URL + '/node/add', "POST");
+		var _onPreSubmit;
+		if (typeof(preOnSubmit) === 'function') {
+			_onPreSubmit = preOnSubmit;
+		} else {
+			_onPreSubmit = function(formElmt, proceedFunc) {
+				var postData = $(formElmt).serialize();
+				proceedFunc(postData);
+			};
+		}
+
+		_onPreSubmit(this, function(postData){
+			_ajax_send(postData, function(response){
+				if (typeof(onSubmitSuccess) === 'function') {
+					onSubmitSuccess(response);
+				}
+			}, "Memproses", AJAX_REQ_URL + '/node/add', "POST");
+		});
 		
 		return false;
 	});
@@ -34,5 +45,6 @@ function postinit_modal() {
 		</div>
 	</div>
 	<input type="hidden" name="data" value="<?php echo htmlspecialchars($nodeData); ?>" />
+	<input type="hidden" name="connect_to" value="<?php echo htmlspecialchars($idNodeToConnect); ?>" />
 	<input type="hidden" name="verb" value="<?php echo $formVerb; ?>" />
 </form>

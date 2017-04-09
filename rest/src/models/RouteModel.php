@@ -152,6 +152,38 @@ class RouteModel {
 	}
 	
 	/**
+	 * Update informasi assign busur dari trayek.
+	 * 
+	 * @param int $idRoute ID trayek
+	 * @param int $orderSeq Nomor urutan
+	 * @param array $updateData Field yang akan diupdate
+	 * @return bool TRUE jika berhasil, NULL jika gagal
+	 */
+	function update_edge_assign($idRoute, $orderSeq, $updateData) {
+		$updateQuery = db_update('public_routes', $updateData, array('id_route' => $routeId, '`order`' => $orderSeq));
+		$queryResult = mysqli_query($this->_db, $updateQuery);
+		return $queryResult;
+	}
+	/**
+	 * Shift urutan data busur
+	 * @param int $idRoute ID trayek
+	 * @param int $shiftCount Jumlah shift, boleh negatif. Ex: 1 atau -1
+	 * @param string $orderCondition Kondisi urutan. Ex: '&gt; 10' atau '&lt; 15'
+	 * @return bool TRUE jika berhasil, NULL jika gagal
+	 */
+	function shift_route_edges($idRoute, $shiftCount, $orderCondition) {
+		$strWhere = sprintf("(id_route=%d) AND (`order` %s)",
+				_db_to_query($idRoute, $this->_db), $orderCondition);
+		
+		$intShiftCount = intval($shiftCount);
+		
+		$updateField = array('`order`' => '`order` + ('.$intShiftCount.')');
+		$updateQuery = db_update('route_edges', $updateField, $strWhere);
+		
+		$queryResult = mysqli_query($this->_db, $updateQuery);
+		return $queryResult;
+	}
+	/**
 	 * Ambil list trayek berdasar id edge
 	 * @param int $idEdge ID Edge
 	 * @return NULL|array[]
@@ -176,5 +208,21 @@ class RouteModel {
 			$listRecord[] = $row;
 		}
 		return $listRecord;
+	}
+	
+	/**
+	 * Hapus trayek berdasar ID trayek
+	 *
+	 * @param ID busur $idRoute
+	 * @return bool TRUE jika berhasil, NULL jika gagal
+	 */
+	function delete_route($idRoute) {
+		$idRoute = intval($idRoute);
+		$deleteQuery = db_delete_where('public_routes', array('id_route' => $idRoute));
+	
+		$queryResult = mysqli_query($this->_db, $deleteQuery);
+		if ($queryResult) {
+			return true;
+		} else return null;
 	}
 }

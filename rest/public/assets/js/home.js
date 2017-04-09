@@ -35,6 +35,9 @@
 	var nodeCursor = null;
 	
 	var currentState;
+	
+	//-- Put state 'session' data here...
+	var currentStateData = [];
 	 
 	//-- Marker clusterer
 	var markerCluster;
@@ -103,12 +106,36 @@
 			}
 			_clear_workspace_callback = clearCallback;
 			currentState = newState;
+			currentStateData = [];
 		}
 	}
 	
 	function reset_gui() {
 		change_state(STATE_DEFAULT, null);
 		update_gui();
+		return false;
+	}
+	
+	// Cancel picker, bring current state to the last state before picker state.
+	function cancel_picker() {
+		if ('lastState' in currentStateData) {
+			if (currentStateData.lastState == STATE_NODESELECTED) {
+				if (nodeCursor) {
+					focus_node_do(nodeCursor.id_node);
+				}
+			} else if (currentStateData.lastState == STATE_EDGESELECTED) {
+				if (activeEditingPolyLine) {
+					edit_edge_do(activeEditingPolyLine.id_edge, activeEditingPolyLine);
+				}
+			} else {
+				change_state(STATE_DEFAULT, null);
+				update_gui();
+			}
+		} else {
+			change_state(STATE_DEFAULT, null);
+			update_gui();
+		}
+		
 		return false;
 	}
 	function map_click(e) {
@@ -127,6 +154,11 @@
 		if ((currentState == STATE_DEFAULT) || (currentState == STATE_NODESELECTED)) {
 			focusedMarker = this;
 			focus_node(this.id_node);
+		} else if (currentState == STATE_PLACENODE) {
+			if (currentStateData['lastState'] == STATE_NODESELECTED) {
+				// Create new edge
+				node_selected_do_(this);
+			}
 		} else if (currentState == STATE_SELECTNODE) {
 			if (typeof(node_selected_callback) === 'function') {
 				node_selected_callback(this);
@@ -447,7 +479,7 @@
 			}
 			
 			if (newEdgeData.edge_name != undefined)
-				edgeNetworkPreview[selectedIdPolyline].edgeData.node_name = newEdgeData.edge_name;
+				edgeNetworkPreview[selectedIdPolyline].edgeData.edge_name = newEdgeData.edge_name;
 		}
 	}
 	

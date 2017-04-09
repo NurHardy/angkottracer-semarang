@@ -49,7 +49,7 @@
 	
 	var _on_modal_cancelled = null;
 	
-	function show_modal(fetchUrl, fetchData, onSubmit, onCancel) {
+	function show_modal(fetchUrl, fetchData, onSubmit, onCancel, preOnSubmit) {
 		$.ajax({
 			type: "POST",
 			url: fetchUrl,
@@ -64,7 +64,7 @@
 				$('#site_modal_loader').hide();
 				$('#site_modal_content').html(response);
 				if (typeof(init_modal) === 'function') {
-					init_modal(onSubmit, onCancel);
+					init_modal(onSubmit, onCancel, preOnSubmit);
 				}
 				_on_modal_cancelled = function(){
 					hide_modal();

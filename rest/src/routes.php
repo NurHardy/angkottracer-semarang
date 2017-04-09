@@ -3,7 +3,7 @@
 // System contants
 //define('GOOGLEMAP_APIKEY', "AIzaSyCB_Tzs_EZ1exoXELhuq_sOlkqhrifjezw");
 define('GOOGLE_APIKEY', 'AIzaSyB2LvXICy-Je6QQFgeIi32FnbA8r-dnqU4');
-define('APPVER', 'v0.5.4.14251');
+define('APPVER', 'v0.5.4.14346');
 define('SRCPATH', __DIR__);
 
 // Routes
@@ -43,6 +43,14 @@ $app->group('/edge', function() {
 	$this->post('/{id}', EdgeControl::class.':save_edge');
 });
 
+$app->group('/route', function() {
+	require SRCPATH . '\controllers\RouteControl.php';
+
+	$this->get('/{id}', RouteControl::class.':get_route_by_id');
+	$this->post('/{id}', RouteControl::class.':save_route');
+	$this->delete('/{id}', RouteControl::class.':delete_route_by_id');
+});
+	
 $app->group('/algorithm', function() {
 	require SRCPATH . '\controllers\AlgorithmControl.php';
 	
@@ -56,6 +64,7 @@ $app->group('/modal', function() {
 $app->group('/app', function() {
 	require SRCPATH . '\controllers\ApplicationControl.php';
 	$this->get('/init', ApplicationControl::class.':get_init_data');
+	$this->get('/cron', ApplicationControl::class.':refresh_distances');
 });
 	
 $app->get('/test/[{name}]', function ($request, $response, $args) {

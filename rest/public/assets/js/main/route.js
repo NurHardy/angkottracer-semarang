@@ -90,6 +90,9 @@ function routeeditor_push_routeline(idEdge, idNodeDest) {
 }
 //-------- ROUTE EDITOR ------------------------------
 function routeeditor_clear_workspace(oldState, newState) {
+	//-- Show progressbar...
+	show_overlay('Clearing workspace...');
+	
 	activeRouteNodeSequence = [];
 	activeRouteEdgeSequence = [];
 	
@@ -114,6 +117,7 @@ function routeeditor_clear_workspace(oldState, newState) {
 		});
 	}
 	
+	hide_overlay();
 }
 
 function init_routeeditor() {
@@ -240,6 +244,26 @@ function route_save(formElmt) {
 	return false;
 }
 
+function route_do_delete_(idRoute, afterDeleteCallback) {
+	_ajax_send({
+		
+	}, function(jsonData){
+		if (typeof(afterDeleteCallback) === 'function') {
+			afterDeleteCallback(jsonData);
+		}
+	}, "Memproses...", AJAX_REQ_URL+'/route/'+idRoute, 'DELETE');
+	
+	return false;
+}
+function routeeditor_draw_cancel() {
+	if (currentState != STATE_DRAWROUTE) return;
+	
+	var uConf = confirm('Pekerjaan/rute yang Anda ubah akan tidak tersimpan. Lanjutkan?');
+	if (!uConf) return false;
+	
+	init_routeeditor();
+	return false;
+}
 function routeeditor_draw_showneighbors() {
 	if (currentState != STATE_DRAWROUTE) return;
 	
@@ -295,12 +319,23 @@ function routeeditor_draw_nextcursor(idNode, idEdge) {
 	var clickedMarker = activeMarkers[idMarker];
 	
 	if (activeRouteNodeSequence.length == 0) {
-		activeRouteNodeSequence.push(idNode);
+		//-- Cek edge yang bertetanggaan...
+		var neighborCount = 0;
+		if (idNode in neighborNodeCache_) {
+			neighborCount = neighborNodeCache_[idNode].length;
+		}
 		
-		$("#table_routeedge tbody").append(
-				'<tr><td><a href="javascript:void(0);" onclick="return routeeditor_draw_movecursor(0);">' + clickedMarker.id_node+
-					'</a></td><td>'+clickedMarker.title+'</td></tr>');
-		routeeditor_draw_showneighbors();
+		if (neighborCount == 0) {
+			alert("Selected node have no neighbor edge. Connect an edge or select another node.");
+		} else {
+			activeRouteNodeSequence.push(idNode);
+			
+			$("#table_routeedge tbody").append(
+					'<tr><td><a href="javascript:void(0);" onclick="return routeeditor_draw_movecursor(0);">' + clickedMarker.id_node+
+						'</a></td><td>'+clickedMarker.title+'</td></tr>');
+			routeeditor_draw_showneighbors();
+		}
+		
 	} else {
 		var lastId = activeRouteNodeSequence.length-1;
 		var lastNodeId = activeRouteNodeSequence[lastId];
@@ -339,14 +374,18 @@ function routeeditor_draw_nextcursor(idNode, idEdge) {
 	}
 }
 
+//-- Move cursor. -1 berarti reset editor trayek
 function routeeditor_draw_movecursor(idxDest) {
-	if (idxDest < 0) return;
+	if (idxDest < -1) return;
 	if (currentState != STATE_DRAWROUTE) return;
 	
 	var seqLen = activeRouteNodeSequence.length;
 	if (seqLen == 0) return;
 	
-	if (idxDest < (seqLen-1)) {
+	if (idxDest == -1) {
+		routeeditor_update_([], []);
+		
+	} else if (idxDest < (seqLen-1)) {
 		var i = 0;
 		for (i = seqLen-1; i > idxDest; i--) {
 			activeRouteNodeSequence.pop();
@@ -361,20 +400,42 @@ function routeeditor_draw_movecursor(idxDest) {
 		
 		var lastMarkerId = _get_idmarker_by_idnode(activeRouteNodeSequence[idxDest]);
 		map.panTo(activeMarkers[lastMarkerId].getPosition());
-	} else if (idxDest == 0) {
-		var lastMarkerId = _get_idmarker_by_idnode(activeRouteNodeSequence[idxDest]);
-		map.panTo(activeMarkers[lastMarkerId].getPosition());
-		
-		activeRouteNodeSequence.pop();
-		$("#table_routeedge tbody tr:last").remove();
-		$("#container_tablerouteedge").scrollTop($('#container_tablerouteedge').height());
 	}
+	return false;
+}
+function routeeditor_draw_delete() {
+	if (currentState != STATE_DRAWROUTE) return false;
+	
+	var uConf = confirm('Data trayek akan dihapus dan tidak dapat dikembalikan. Lanjutkan?');
+	if (!uConf) return false;
+	
+	//-- Jika rute baru, maka tidak perlu submit ke db.
+	if (activeRouteId === null) {
+		init_routeeditor();
+	} else {
+		route_do_delete_(activeRouteId, function() {
+			init_routeeditor();
+		});
+	}
+	
+	return false;
+}
+function routeeditor_draw_reset() {
+	if (currentState != STATE_DRAWROUTE) return false;
+	
+	var uConf = confirm('Data rute trayek akan dihapus. Lanjutkan?');
+	if (!uConf) return false;
+	
+	routeeditor_draw_movecursor(-1);
+	
 	return false;
 }
 function routeeditor_draw_backward() {
 	var seqLen = activeRouteNodeSequence.length-1;
 	if (seqLen > 0) {
 		routeeditor_draw_movecursor(seqLen-1);
+	} else {
+		routeeditor_draw_movecursor(-1);
 	}
 	return false;
 }

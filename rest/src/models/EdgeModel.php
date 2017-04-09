@@ -140,4 +140,5 @@ class EdgeModel {
 			return true;
 		} else return null;
 	}
+
 }

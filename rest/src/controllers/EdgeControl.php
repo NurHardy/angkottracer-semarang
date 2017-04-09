@@ -10,6 +10,7 @@ class EdgeControl {
 
 	private $_data;
 	private $_status;
+	private $_routeData;
 	protected $container;
 	protected $renderer;
 
@@ -38,7 +39,22 @@ class EdgeControl {
 							'reversible' => ($edgeItem['reversible'] == 1),
 					)
 			);
+			
+			$edgeOpts = array(
+					'allowreverse' => true,
+					'allowdelete' => true,
+			);
 		
+			//-- Fetch routes (check)
+			require_once SRCPATH.'\models\RouteModel.php';
+			$routeModel = new RouteModel($this->container->get('db'));
+			$routeList = $routeModel->get_edge_route($edgeItem['id_edge']);
+			if (count($routeList) > 0) {
+				// Disable reverse and delete in editor
+				$edgeOpts['allowreverse'] = false;
+				$edgeOpts['allowdelete'] = false;
+			}
+			
 			//-- Fetch node info
 			require_once SRCPATH.'\models\NodeModel.php';
 			$nodeModel = new NodeModel($this->container->get('db'));
@@ -82,7 +98,8 @@ class EdgeControl {
 				
 			$this->_data = array(
 					'status' => 'ok',
-					'data' => $edgeInfo
+					'data' => $edgeInfo,
+					'opts' => $edgeOpts
 			);
 		} else {
 			$this->_status = HTTPSTATUS_NOTFOUND;
@@ -211,38 +228,52 @@ class EdgeControl {
 		
 		require_once SRCPATH.'/helpers/gmap_tools.php';
 		require_once SRCPATH.'/helpers/geo_tools.php';
+		require_once SRCPATH.'/helpers/node_tools.php';
 		require_once SRCPATH.'/models/EdgeModel.php';
 		require_once SRCPATH.'/models/NodeModel.php';
+		require_once SRCPATH.'/models/RouteModel.php';
 		
 		$nodeModel = new NodeModel($mysqli);
 		$edgeModel = new EdgeModel($mysqli);
+		$routeModel = new RouteModel($mysqli);
 		
 		$polyLineData = decode_polyline($encPolyLine);
-			
 		$lastIdx = count($polyLineData)-1;
+		
+		//-- Check old edge
+		$oldEdgeData = $edgeModel->get_edge_by_id($idEdge);
+		
+		if (!$oldEdgeData) {
+			$this->_status = HTTPSTATUS_NOTFOUND;
+			$this->_data = generate_error("Edge data not found or deleted.");
+			return $response->withJson($this->_data, $this->_status);
+		}
 			
 		//-- Start transaction
 		$mysqli->autocommit(false);
-			
+		
+		//-- Periksa trayek yang melalui busur
+		$errorMsg = null;
+		$this->_routeData = edge_check_routes($routeModel, $oldEdgeData, $idNodeFrom, $idNodeDest, $errorMsg);
+		if ($errorMsg) {
+			$mysqli->rollback();
+			$this->_status = HTTPSTATUS_BADREQUEST;
+			$this->_data = generate_error($errorMsg);
+			return $response->withJson($this->_data, $this->_status);
+		}
+		
 		//-- Update posisi node ujung...
-		$nodeDataQuery = array();
-			
-		$nodeDataQuery['location'] = "GeomFromText('".latlng_coord_to_mysql($polyLineData[$lastIdx])."')";
-		if (!$nodeModel->save_node($nodeDataQuery, $idNodeDest)) {
+		$procResult = edge_save_ends($nodeModel, $polyLineData, $idNodeFrom, $idNodeDest);
+		if (!$procResult) {
 			$mysqli->rollback();
 			$this->_status = HTTPSTATUS_INTERNALERROR;
 			$this->_data = generate_error("Query failed.");
 			return $response->withJson($this->_data, $this->_status);
 		}
-			
-		$nodeDataQuery['location'] = "GeomFromText('".latlng_coord_to_mysql($polyLineData[0])."')";
-		if (!$nodeModel->save_node($nodeDataQuery, $idNodeFrom)) {
-			$mysqli->rollback();
-			$this->_status = HTTPSTATUS_INTERNALERROR;
-			$this->_data = generate_error("Query failed.");
-			return $response->withJson($this->_data, $this->_status);
-		}
-			
+		
+		//-- Panjang busur dihitung dari ujung awal hingga akhir
+		$edgeLength = polyline_length($polyLineData, 'K');
+		
 		//-- Napus vertex pertama dan terakhir karena merupakan node
 		unset($polyLineData[$lastIdx]);
 		unset($polyLineData[0]);
@@ -253,6 +284,7 @@ class EdgeControl {
 				'id_node_from' => intval($idNodeFrom),
 				'id_node_dest' => intval($idNodeDest),
 				'polyline' => db_geom_from_text($polyLineSql),
+				'distance' => $edgeLength,
 				'reversible' => ($isReversible ? 1 : 0)
 		);
 			
@@ -322,11 +354,16 @@ class EdgeControl {
 		
 		return $response->withJson($this->_data, $this->_status);
 	}
+	
 	public function save_edge_and_break($request, $response, $args) {
+		$mysqli = $this->container->get('db');
+		
 		require_once SRCPATH.'/models/NodeModel.php';
 		require_once SRCPATH.'/models/EdgeModel.php';
-		$nodeModel = new NodeModel($this->container->get('db'));
-		$edgeModel = new EdgeModel($this->container->get('db'));
+		require_once SRCPATH.'/models/RouteModel.php';
+		$nodeModel = new NodeModel($mysqli);
+		$edgeModel = new EdgeModel($mysqli);
+		$routeModel = new RouteModel($mysqli);
 		
 		require_once SRCPATH.'/helpers/gmap_tools.php';
 		require_once SRCPATH.'/helpers/geo_tools.php';
@@ -337,24 +374,50 @@ class EdgeControl {
 		$encPolyLine = $postData['new_path'];
 		$idEdge = $postData['id'];
 		$idxVertex = intval($postData['vertex_idx']);
+		$idNodeFrom = intval($postData['id_node_from']);
+		$idNodeDest = intval($postData['id_node_dest']);
+		$edgeName = (isset($postData['edge_name']) ? $postData['edge_name'] : null);
+		$isReversible = ($postData['reversible'] == 1 ? true : false);
 		
 		$polyLineData = decode_polyline($encPolyLine);
 		
 		$lastIdx = count($polyLineData)-1;
 		
+		$mysqli->autocommit(false);
+		
+		//-- Check old edge
+		$oldEdgeData = $edgeModel->get_edge_by_id($idEdge);
+		
+		if (!$oldEdgeData) {
+			$this->_status = HTTPSTATUS_NOTFOUND;
+			$this->_data = generate_error("Edge data not found or deleted.");
+			return $response->withJson($this->_data, $this->_status);
+		}
+		
 		//-- Napus vertex pertama dan terakhir karena merupakan node
 		//unset($polyLineData[$lastIdx]);
 		//unset($polyLineData[0]);
-			
+		
+		//-- Populate new edgeData
+		$updateData = array(
+				'edge_name' => $edgeName,
+				'id_node_from' => intval($idNodeFrom),
+				'id_node_dest' => intval($idNodeDest),
+				'reversible' => ($isReversible ? 1 : 0)
+		);
+		
 		$errorMsg = null;
+		$errorCode = HTTPSTATUS_OK;
 		$newPolyline = array();
 		
-		$mysqli = $this->container->get('db');
 		$newId = save_and_break_edge([
-				$mysqli, $nodeModel, $edgeModel
-		], $polyLineData, $idxVertex, $idEdge, $errorMsg, $newPolyline, true);
+				$mysqli, $nodeModel, $edgeModel, $routeModel
+		], $oldEdgeData, $updateData, $polyLineData, $idxVertex, $idEdge, $errorMsg, $errorCode, $newPolyline, true);
 			
 		if ($newId) {
+			//-- Commit all queries
+			$mysqli->commit();
+			
 			//-- Append node ujung...
 			array_unshift($newPolyline[0]['polyline'], $polyLineData[0]);
 			array_push($newPolyline[0]['polyline'], $polyLineData[$idxVertex]);
@@ -375,8 +438,10 @@ class EdgeControl {
 							'node_type' => 0
 					)
 			));
+			
 		} else {
-			$this->_status = HTTPSTATUS_INTERNALERROR;
+			$mysqli->rollback();
+			$this->_status = $errorCode;
 			$this->_data = generate_error("Process failed: ".$errorMsg);
 		}
 		

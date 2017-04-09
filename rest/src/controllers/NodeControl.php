@@ -134,10 +134,13 @@ class NodeControl {
 		$nodePosLat = floatval($nodeData['lat']);
 		$nodePosLng = floatval($nodeData['lng']);
 		$nodeType = (isset($postData['node_type']) ? $postData['node_type'] : 0);
+		$idNodeToConnect = (isset($postData['connect_to']) ? $postData['connect_to'] : null);
 			
 		require_once SRCPATH.'\helpers\geo_tools.php';
 		require_once SRCPATH .'\models\NodeModel.php';
 		$mysqli = $this->container->get('db');
+		
+		$mysqli->autocommit(false);
 		
 		$nodeModel = new NodeModel($mysqli);
 		// TODO: Validasi lat, lng, nama
@@ -150,7 +153,59 @@ class NodeControl {
 		$nodeDataQuery['id_creator'] = 0;
 		$nodeDataQuery['creator'] = "'system'";
 		$nodeDataQuery['node_type'] = $nodeType;
+		
 		if ($newId = $nodeModel->save_node($nodeDataQuery, -1)) {
+			$savedEdgeData = null;
+			
+			//-- Process meta
+			if (!empty($idNodeToConnect)) {
+				$adjNodePos = [];
+				$adjNodeData = $nodeModel->get_node_by_id($idNodeToConnect);
+				if (!$adjNodeData) {
+					$mysqli->rollback();
+					$this->_status = HTTPSTATUS_BADREQUEST;
+					$this->_data = generate_error("Invalid node id specified.");
+					return $response->withJson($this->_data, $this->_status);
+				}
+				
+				$adjNodePos['lat'] = floatval($adjNodeData['location_lat']);
+				$adjNodePos['lng'] = floatval($adjNodeData['location_lng']);
+				
+				$newEdgeData = array();
+				$newEdgeData['distance'] = distance($adjNodePos['lat'], $adjNodePos['lng'], $nodePosLat, $nodePosLng, 'K');
+				$newEdgeData['id_node_from'] = intval($idNodeToConnect);
+				$newEdgeData['id_node_dest'] = $newId;
+				$newEdgeData['traffic_index'] = 1.0;
+				$newEdgeData['id_creator'] = 0;
+				$newEdgeData['creator'] = "'system'";
+				$newEdgeData['reversible'] = 1;
+				
+				require_once SRCPATH.'\models\EdgeModel.php';
+				$edgeModel = new EdgeModel($mysqli);
+				
+				if ($newIdEdge = $edgeModel->save_edge($newEdgeData, -1)) {
+					$savedEdgeData = array(
+							'id' => $newIdEdge,
+							'pos1' => $adjNodePos,
+							'pos2' => ['lat' => $nodePosLat, 'lng' => $nodePosLng],
+							'edgedata' => array(
+									'edge_name' => null,
+									'id_node_from' => $newEdgeData['id_node_from'],
+									'id_node_dest' => $newEdgeData['id_node_dest'],
+									'reversible' => $newEdgeData['reversible']
+							),
+							'edge_length' => floatval($newEdgeData['distance'])
+					);
+				} else {
+					$mysqli->rollback();
+					$this->_status = HTTPSTATUS_BADREQUEST;
+					$this->_data = generate_error("Internal query error. Cannot create new edge.");
+					return $response->withJson($this->_data, $this->_status);
+				}
+			}
+			
+			$mysqli->commit();
+			//-- Output
 			$savedNodeData = array(
 					'id' => $newId,
 					'position' => array(
@@ -166,7 +221,12 @@ class NodeControl {
 					'status' => 'ok',
 					'data' => $savedNodeData
 			);
+			
+			if (!empty($savedEdgeData)) {
+				$this->_data['new_edge'] = $savedEdgeData;
+			}
 		} else {
+			$mysqli->rollback();
 			$this->_status = HTTPSTATUS_INTERNALERROR;
 			$this->_data = generate_error("Internal error: ". mysqli_error($mysqli));
 		}

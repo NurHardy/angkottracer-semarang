@@ -107,7 +107,7 @@
 	/*::         GeoDataSource.com (C) All Rights Reserved 2015		   		     :*/
 	/*::                                                                         :*/
 	/*::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
-	function distance($lat1, $lon1, $lat2, $lon2, $unit) {
+	/*function distance($lat1, $lon1, $lat2, $lon2, $unit) {
 	
 		$theta = $lon1 - $lon2;
 		$dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
@@ -123,8 +123,40 @@
 		} else {
 			return $miles;
 		}
+	}*/
+	
+	/**
+	 * Hitung jarak menggunakan fungsi haversine
+	 * 
+	 * @param char $unit K=kilometer, M=mil
+	 * @return float jarak dalam satuan
+	 */
+	function distance($lat1, $lon1, $lat2, $lon2, $unit) {
+		$radiusOfEarth = 6371; // Earth's radius in kilometers.
+		
+		// convert from degrees to radians
+		$latFrom = deg2rad($lat1);
+		$latTo = deg2rad($lat2);
+
+		$latDelta = $latTo - $latFrom;
+		$lonDelta = deg2rad($lon2) - deg2rad($lon1);
+
+		$angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) +
+    		cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
+		return ($angle * $radiusOfEarth);
 	}
 	
+	/**
+	 * Hitung jarak antar dua lokasi
+	 * 
+	 * @param array $node1 Posisi 1 (lat:, lng:)
+	 * @param array $node2 Posisi 2 (lat:, lng:)
+	 * @param char $unit M = mile, K = kilometer
+	 * @return NULL|float Jarak dalam satuan yang dimaksud.
+	 */
+	function node_distance($node1, $node2, $unit) {
+		return distance($node1['lat'], $node1['lng'], $node2['lat'], $node2['lng'], $unit);
+	}
 	/**
 	 * Hitung panjang polyline
 	 * 

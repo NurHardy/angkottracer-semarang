@@ -15,59 +15,85 @@ function VertexContextMenu() {
   
   this.subMenus = [];
   
+  var menu = this;
+  var menuIdCounter = 0;
+  
   //-- Generate context menus
-  this.subMenus.push(document.createElement('a'));
-  this.subMenus[0].href = '#';
-  this.subMenus[0].className = 'menu-item';
-  this.subMenus[0].id = 'ctxmenu-0-delete';
-  this.subMenus[0].innerHTML = '&times; Delete';
-  this.div_.appendChild(this.subMenus[0]);
   
-  this.subMenus.push(document.createElement('a'));
-  this.subMenus[1].href = '#';
-  this.subMenus[1].className = 'menu-item';
-  this.subMenus[1].id = 'ctxmenu-0-setstart';
-  this.subMenus[1].innerHTML = 'Set as A';
-  this.div_.appendChild(this.subMenus[1]);
-  
-  this.subMenus.push(document.createElement('a'));
-  this.subMenus[2].href = '#';
-  this.subMenus[2].className = 'menu-item';
-  this.subMenus[2].id = 'ctxmenu-0-setend';
-  this.subMenus[2].innerHTML = 'Set as B';
-  this.div_.appendChild(this.subMenus[2]);
+  // Header
+  this.subMenus.push(document.createElement('small'));
+  this.subMenus[menuIdCounter].className = 'menu-item';
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  menuIdCounter++;
   
   this.subMenus.push(document.createElement('hr'));
-  this.div_.appendChild(this.subMenus[3]);
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  menuIdCounter++;
   
+  // Delete vertex menu
   this.subMenus.push(document.createElement('a'));
-  this.subMenus[4].className = 'menu-item';
-  this.subMenus[4].id = 'ctxmenu-0-convnode';
-  this.subMenus[4].innerHTML = 'Convert to Node';
-  this.div_.appendChild(this.subMenus[4]);
-  
-  this.subMenus.push(document.createElement('a'));
-  this.subMenus[5].className = 'menu-item';
-  this.subMenus[5].id = 'ctxmenu-0-addshelter';
-  this.subMenus[5].innerHTML = 'Add Shelter';
-  this.div_.appendChild(this.subMenus[5]);
-  
-  var menu = this;
-  google.maps.event.addDomListener(this.subMenus[0], 'click', function() {
+  this.subMenus[menuIdCounter].href = '#';
+  this.subMenus[menuIdCounter].className = 'menu-item';
+  this.subMenus[menuIdCounter].id = 'ctxmenu-0-delete';
+  this.subMenus[menuIdCounter].innerHTML = '&times; Delete';
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  google.maps.event.addDomListener(this.subMenus[menuIdCounter], 'click', function() {
 	  menu.removeVertex();
   });
-  google.maps.event.addDomListener(this.subMenus[1], 'click', function() {
+  menuIdCounter++;
+  
+  // Set A
+  this.subMenus.push(document.createElement('a'));
+  this.subMenus[menuIdCounter].href = '#';
+  this.subMenus[menuIdCounter].className = 'menu-item';
+  this.subMenus[menuIdCounter].id = 'ctxmenu-0-setstart';
+  this.subMenus[menuIdCounter].innerHTML = 'Set as A';
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  google.maps.event.addDomListener(this.subMenus[menuIdCounter], 'click', function() {
 	  menu.setAsNodeVertex(1);
   });
-  google.maps.event.addDomListener(this.subMenus[2], 'click', function() {
+  menuIdCounter++;
+  
+  // Set B
+  this.subMenus.push(document.createElement('a'));
+  this.subMenus[menuIdCounter].href = '#';
+  this.subMenus[menuIdCounter].className = 'menu-item';
+  this.subMenus[menuIdCounter].id = 'ctxmenu-0-setend';
+  this.subMenus[menuIdCounter].innerHTML = 'Set as B';
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  google.maps.event.addDomListener(this.subMenus[menuIdCounter], 'click', function() {
 	  menu.setAsNodeVertex(2);
   });
-  google.maps.event.addDomListener(this.subMenus[4], 'click', function() {
+  menuIdCounter++;
+  
+  // Divider
+  this.subMenus.push(document.createElement('hr'));
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  menuIdCounter++;
+  
+  // Set as node
+  this.subMenus.push(document.createElement('a'));
+  this.subMenus[menuIdCounter].className = 'menu-item';
+  this.subMenus[menuIdCounter].id = 'ctxmenu-0-convnode';
+  this.subMenus[menuIdCounter].innerHTML = 'Create Node';
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  google.maps.event.addDomListener(this.subMenus[menuIdCounter], 'click', function() {
 	  menu.setVertexAsNode();
   });
-  google.maps.event.addDomListener(this.subMenus[5], 'click', function() {
+  menuIdCounter++;
+  
+  // Connect to node
+  this.subMenus.push(document.createElement('a'));
+  this.subMenus[menuIdCounter].className = 'menu-item';
+  this.subMenus[menuIdCounter].id = 'ctxmenu-0-connectnode';
+  this.subMenus[menuIdCounter].innerHTML = 'Connect to Node...';
+  this.div_.appendChild(this.subMenus[menuIdCounter]);
+  google.maps.event.addDomListener(this.subMenus[menuIdCounter], 'click', function(e) {
 	  menu.insertShelter();
+	  e.stopPropagation();
   });
+  menuIdCounter++;
+  
 }
 VertexContextMenu.prototype = new google.maps.OverlayView();
 
@@ -76,20 +102,24 @@ VertexContextMenu.prototype.onAdd = function() {
   var map = this.getMap();
   this.getPanes().floatPane.appendChild(this.div_);
 
+  var dismissFunc = function(e) {
+	    //if (e.target != ctxMenu.div_) {
+	    //	deleteMenu.close();
+	    //}
+		  if (e.target.className != 'menu-item') {
+			  ctxMenu.close();
+		  }
+	  };
   // mousedown anywhere on the map except on the menu div will close the
   // menu.
-  this.divListener_ = google.maps.event.addDomListener(map.getDiv(), 'mousedown', function(e) {
-    //if (e.target != ctxMenu.div_) {
-    //	deleteMenu.close();
-    //}
-	  if (e.target.className != 'menu-item') {
-		  ctxMenu.close();
-	  }
-  }, true);
+  this.divListener_ = google.maps.event.addDomListener(map.getDiv(), 'mousedown', dismissFunc, true);
+  this.paneldivListener_ = google.maps.event.addDomListener(document.body, 'mousedown', dismissFunc, true);
 };
 
 VertexContextMenu.prototype.onRemove = function() {
   google.maps.event.removeListener(this.divListener_);
+  google.maps.event.removeListener(this.paneldivListener_);
+  
   this.div_.parentNode.removeChild(this.div_);
 
   // clean up
@@ -119,6 +149,8 @@ VertexContextMenu.prototype.draw = function() {
  * Opens the menu at a vertex of a given path.
  */
 VertexContextMenu.prototype.open = function(map, path, vertex) {
+	this.subMenus[0].innerHTML = 'Vertex #'+vertex;
+	
 	this.set('position', path.getAt(vertex));
 	this.set('path', path);
 	this.set('vertex', vertex);
@@ -201,7 +233,7 @@ VertexContextMenu.prototype.setVertexAsNode = function() {
 };
 
 /**
- * Tambah shelter di komponen edge
+ * Tambah shelter di komponen edge/ connect to node.
  */
 VertexContextMenu.prototype.insertShelter = function() {
 	var path = this.get('path');
@@ -215,5 +247,6 @@ VertexContextMenu.prototype.insertShelter = function() {
 	this.close();
 	
 	//-- Panggil!
-	create_shelter(vertex);
+	//create_shelter(vertex);
+	new_node(vertex);
 };

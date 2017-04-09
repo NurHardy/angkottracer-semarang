@@ -4,7 +4,7 @@
  * Subroutine untuk vertex/node
  */
 
-function new_node() {
+function new_node(vertexIndex) {
 	//currentState = STATE_PLACENODE;
 	var oldState = currentState;
 	
@@ -15,7 +15,28 @@ function new_node() {
 		}
 	});
 	
-	update_gui();
+	currentStateData['lastState'] = oldState;
+	if (oldState == STATE_NODESELECTED) {
+		//-- Tampilkan cursor jika ada node terpilih
+		if (nodeCursor)	nodeCursor.setVisible(true);
+	} else if (oldState == STATE_EDGESELECTED) {
+		//-- Manipulate edge in the editor
+		if (nodeCursor)	nodeCursor.setVisible(true);
+		
+		var edgePath = activeEditingPolyLine.getPath();
+		nodeCursor.setPosition(edgePath.getAt(vertexIndex));
+		
+		activeEditingPolyLine.setVisible(true);
+		activeEditingPolyLine.setOptions({editable:false});
+		
+		//-- Process state
+		var encStr = google.maps.geometry.encoding.encodePath(edgePath);
+		currentStateData['edgePolyLine'] = encStr;
+		currentStateData['vertexIndex'] = vertexIndex;
+	}
+	
+	// Pass FALSE to keep activeEditingPolyLine state.
+	update_gui(false);
 }
 
 /*
@@ -29,40 +50,73 @@ function _new_vertex(e) {
 	var submitData = {'lat': clickLat, 'lng': clickLng};
 	
 	//-- Editing edge?
-	if (activeEditingPolyLine) {
-		var isEditPolylineExist = activeEditingPolyLine.getVisible();
-		if (isEditPolylineExist) {
-			submitData['connect_to'] = {
+	var modalPreSubmit;
+	var idNodeToConnect = null;
+	
+	if ((currentStateData.lastState == STATE_EDGESELECTED) &&
+				('vertexIndex' in currentStateData)) {
+		
+		if (activeEditingPolyLine) {
+			/*submitData['connect_to'] = {
 				'type': 'edge',
-				'id': activeEditingPolyLine.id_edge
-			}
-		}
+				'id': activeEditingPolyLine.id_edge,
+				'vertex_index': currentStateData.vertexIndex
+			};*/
+			
+			//-- Make editor break the edge first before add new node...
+			modalPreSubmit = function(formElmt, proceedFunc) {
+				edge_break(currentStateData.vertexIndex, function(jsonData) {
+					var newIdNode = jsonData.new_node_id;
+					$(formElmt).find("input[name=connect_to]").val(newIdNode);
+					
+					var postData = $(formElmt).serialize();
+					proceedFunc(postData);
+				});
+			};
+		} // End if
 	}
 
 	//-- Editing node?
-	if (nodeCursor) {
+	if (currentStateData.lastState == STATE_NODESELECTED) {
 		var isNodeCursorExist = nodeCursor.getVisible();
 		if (isNodeCursorExist) {
-			submitData['connect_to'] = {
+			idNodeToConnect = nodeCursor.id_node;
+			/*submitData['connect_to'] = {
 				'type': 'node',
 				'id':nodeCursor.id_node
-			}
+			};*/
 		}
 	}
-	
 	
 	//alert(selectedPoint.lat()+','+selectedPoint.lng());
 	show_modal(URL_MODAL, {
 		'name': 'node.add',
-		'data': submitData
+		'data': submitData,
+		'connect_to': idNodeToConnect
 	}, function(response){
 		_gui_push_node(response.data.id, response.data.position, response.data.node_data);
-		hide_modal();
 		
-		focus_node_do(response.data.id);
+		var lastState = currentStateData['lastState'];
+		var vertexIdx = (0);
+		
+		//-- New edge exists
+		if ('new_edge' in response) {
+			//-- Saved and add into edge network
+			_gui_push_edge(response.new_edge.id, [response.new_edge.pos1, response.new_edge.pos2], response.new_edge.edgedata);
+			
+			//-- Long enough to edit...
+			if (response.new_edge.edge_length > 0.05) {
+				edit_edge_do(response.new_edge.id);
+			} else {
+				focus_node_do(response.data.id);
+			}
+		} else {
+			focus_node_do(response.data.id);
+		}
+		hide_modal();
 	}, function(){
 		
-	});
+	}, modalPreSubmit);
 }
 
 function focus_node_do(idNode) {
@@ -211,10 +265,11 @@ function focus_node(nodeId) { // nodeId di database
 function node_clear_workspace(oldState, newState) {
 	// Sembunyikan cursor jika status baru bukan untuk 'mengolah' node.
 	if ((newState != STATE_NODESELECTED) && (newState != STATE_MOVENODE)) {
-		if ((oldState == STATE_NODESELECTED) && (newState == STATE_PLACENODE)) {
+		if (newState != STATE_PLACENODE) {
 			//-- Hide node cursor
 			if (nodeCursor)	nodeCursor.setVisible(false);
 		}
+		
 		//-- Clear clickable neighbor edges
 		clear_lines();
 	}
@@ -283,6 +338,16 @@ function node_move() {
 	update_gui();
 }
 
+function node_move_reset() {
+	if (currentState != STATE_MOVENODE) return false;
+	if (!nodeCursor) return false;
+	
+	var markedId = _get_idmarker_by_idnode(nodeCursor.id_node);
+	var revertPos = activeMarkers[markedId].getPosition();
+	
+	nodeCursor.setPosition(revertPos);
+	map.panTo(revertPos);
+}
 function node_move_commit() {
 	var newPosition = nodeCursor.getPosition();
 	var newLat = newPosition.lat();
