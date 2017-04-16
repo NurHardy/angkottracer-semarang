@@ -23,7 +23,7 @@ class EdgeControl {
 	}
 	
 	public function get_edge_by_id($request, $response, $args) {
-		require_once SRCPATH.'\models\EdgeModel.php';
+		require_once SRCPATH.'/models/EdgeModel.php';
 		$edgeModel = new EdgeModel($this->container->get('db'));
 		
 		$idEdge = intval($args['id']);
@@ -46,7 +46,7 @@ class EdgeControl {
 			);
 		
 			//-- Fetch routes (check)
-			require_once SRCPATH.'\models\RouteModel.php';
+			require_once SRCPATH.'/models/RouteModel.php';
 			$routeModel = new RouteModel($this->container->get('db'));
 			$routeList = $routeModel->get_edge_route($edgeItem['id_edge']);
 			if (count($routeList) > 0) {
@@ -56,7 +56,7 @@ class EdgeControl {
 			}
 			
 			//-- Fetch node info
-			require_once SRCPATH.'\models\NodeModel.php';
+			require_once SRCPATH.'/models/NodeModel.php';
 			$nodeModel = new NodeModel($this->container->get('db'));
 			
 			$nodeFromData = $nodeModel->get_node_by_id($edgeItem['id_node_from']);
@@ -88,8 +88,8 @@ class EdgeControl {
 							'node_type' => $nodeDestData['node_type']
 					)
 			);
-			require_once SRCPATH.'\helpers\geo_tools.php';
-			require_once SRCPATH.'\helpers\gmap_tools.php';
+			require_once SRCPATH.'/helpers/geo_tools.php';
+			require_once SRCPATH.'/helpers/gmap_tools.php';
 		
 			$polyLineData = mysql_to_latlng_coords($edgeItem['polyline_data']);
 			$decPolyLine = encode_polyline($polyLineData);
@@ -110,8 +110,8 @@ class EdgeControl {
 	}
 	
 	public function add_edge($request, $response, $args) {
-		require_once SRCPATH.'\models\NodeModel.php';
-		require_once SRCPATH.'\helpers\geo_tools.php';
+		require_once SRCPATH.'/models/NodeModel.php';
+		require_once SRCPATH.'/helpers/geo_tools.php';
 		
 		$postData = $request->getParsedBody();
 		
@@ -162,7 +162,7 @@ class EdgeControl {
 		$newEdgeData['creator'] = "'system'";
 		$newEdgeData['reversible'] = ($edgeDirection == 0 ? 1 : 0);
 		
-		require_once SRCPATH.'\models\EdgeModel.php';
+		require_once SRCPATH.'/models/EdgeModel.php';
 		$edgeModel = new EdgeModel($this->container->get('db'));
 		
 		if ($newId = $edgeModel->save_edge($newEdgeData, -1)) {
@@ -514,13 +514,13 @@ class EdgeControl {
 		//echo $json = file_get_contents($jsonurl);
 	}
 	public function delete_edge_by_id($request, $response, $args) {
-		require_once SRCPATH.'\models\EdgeModel.php';
+		require_once SRCPATH.'/models/EdgeModel.php';
 		$edgeModel = new EdgeModel($this->container->get('db'));
 	
 		$idEdge = intval($args['id']);
 		
 		//-- Check if there are route passed the edge
-		require_once SRCPATH.'\models\RouteModel.php';
+		require_once SRCPATH.'/models/RouteModel.php';
 		$routeModel = new RouteModel($this->container->get('db'));
 		$routeList = $routeModel->get_edge_route($idEdge);
 		

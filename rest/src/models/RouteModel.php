@@ -18,6 +18,17 @@ class RouteModel {
 	}
 	
 	/**
+	 * Ambil list jenis trayek
+	 * @return string[] Array (id =&gt; name)
+	 */
+	function get_route_types() {
+		return array(
+				0 => 'Angkutan Kota',
+				1 => 'Shuttle Bus (BRT)'
+		);
+	}
+	
+	/**
 	 * Fetch routes
 	 * @param int $vehicleType Jenis armada. 1 = mobil, 2 = bus kecil, 3 = bus besar, 4 = BRT
 	 * @return null|array NULL jika error, jika sukses kembali array objek
@@ -172,7 +183,7 @@ class RouteModel {
 	 * @return bool TRUE jika berhasil, NULL jika gagal
 	 */
 	function shift_route_edges($idRoute, $shiftCount, $orderCondition) {
-		$strWhere = sprintf("(id_route=%d) AND (`order` %s)",
+		$strWhere = sprintf("(id_route=%s) AND (`order` %s)",
 				_db_to_query($idRoute, $this->_db), $orderCondition);
 		
 		$intShiftCount = intval($shiftCount);

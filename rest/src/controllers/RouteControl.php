@@ -100,7 +100,7 @@ class RouteControl {
 	public function delete_route_by_id($request, $response, $args) {
 		$mysqli = $this->container->get('db');
 		
-		require_once SRCPATH.'\models\RouteModel.php';
+		require_once SRCPATH.'/models/RouteModel.php';
 		$routeModel = new RouteModel($mysqli);
 		
 		$idRoute = intval($args['id']);

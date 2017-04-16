@@ -22,30 +22,42 @@ function fix_route($edgeModel, $routeModel, $idRoute, $oldEdgeData, $newIdNode, 
 	$orderNumber = 0;
 	$assignData = [];
 	
+	$lastNodeId = null;
+	if (!empty($routeEdges)) {
+		$lastNodeId = ($routeEdges[0]['direction'] > 0 ? $routeEdges[0]['id_node_from'] : $routeEdges[0]['id_node_dest']);
+	}
 	foreach ($routeEdges as $itemEdge) {
 		// Increment counter
 		$orderNumber++;
 		
 		// Edge data modified here, so fix it
 		if ($itemEdge['id_edge'] == $oldEdgeData['id_edge']) {
+			// Check edge and route direction...
+			$routeEdgeDir = ($itemEdge['direction'] > 0 ? "'1'" : "'-1'");
+			
 			// Shift the rest of order
-			if ($itemEdge['direction'] > 0) {
+			if (($itemEdge['direction'] > 0) && ($lastNodeId == $oldEdgeData['id_node_from'])) {
 				// Route is same direction as edge
 				$procResult = $routeModel->shift_route_edges($idRoute, 1, '> '.$orderNumber);
 				if (!$procResult) break;
 				
-				$assignData = [$idRoute, $newIdEdge, "'1'", ($orderNumber+1)];
-			} else {
+				$assignData = [$idRoute, $newIdEdge, $routeEdgeDir, ($orderNumber+1)];
+			} else if (($itemEdge['direction'] < 0) && ($lastNodeId == $oldEdgeData['id_node_dest'])) {
 				$procResult = $routeModel->shift_route_edges($idRoute, 1, '>= '.$orderNumber);
 				if (!$procResult) break;
 				
-				$assignData = [$idRoute, $newIdEdge, "'-1'", $orderNumber];
+				$assignData = [$idRoute, $newIdEdge, $routeEdgeDir, $orderNumber];
+			} else {
+				//-- Something not right here...
+				$procResult = false;
+				break;
 			}
 			
 			$procResult = $routeModel->assign_route_edge([$assignData]);
 			break;
 		}
 		
+		$lastNodeId = ($itemEdge['direction'] > 0 ? $itemEdge['id_node_dest'] : $itemEdge['id_node_from']);
 	} // End foreach
 	
 	return $procResult;

@@ -183,7 +183,7 @@ function save_and_break_edge($handles, $oldEdgeData, $newEdgeData, $edgePoints, 
 		}
 		
 		//-- Ambil edge bagian kedua
-		$newEdgeName = null;
+		$newEdgeName = $newEdgeData['edge_name'];
 		
 		$polyDistance = 0.0; // Init
 		$idxCounter = 0;

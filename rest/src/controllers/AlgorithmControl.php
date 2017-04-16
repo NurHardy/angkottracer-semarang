@@ -121,16 +121,51 @@ class AlgorithmControl {
 		$dbNode = $nodeModel->get_nodes(-1);
 		$dbEdge = $edgeModel->get_edges();
 	
-		foreach ($dbEdge as $edgeItem) {
+		foreach ($dbEdge as $edgeKey => $edgeItem) {
+			// We do not need the polyline field...
+			unset($dbEdge[$edgeKey]['polyline']);
+			
 			$nodeFrom = $edgeItem['id_node_from'];
 			$nodeDest = $edgeItem['id_node_dest'];
 	
-			$dbNode[$nodeFrom]['neighbors'][$nodeDest] = array($edgeItem['distance'], $edgeItem['id_edge']);
+			$dbNode[$nodeFrom]['neighbors'][$nodeDest] = array(floatval($edgeItem['distance']), intval($edgeItem['id_edge']));
 			if ($edgeItem['reversible'] == 1) {
-				$dbNode[$nodeDest]['neighbors'][$nodeFrom] = array($edgeItem['distance'], $edgeItem['id_edge']);
+				$dbNode[$nodeDest]['neighbors'][$nodeFrom] = array(floatval($edgeItem['distance']), intval($edgeItem['id_edge']));
 			}
 		}
 	
+		foreach ($dbNode as $nodeKey => $nodeItem) {
+			// We do not need the location field...
+			unset($dbNode[$nodeKey]['location']);
+			$dbNode[$nodeKey]['shuttle_buses'] = ['depart' => [], 'arrive' => []];
+			
+			// Shelter BRT?
+			if ($nodeItem['node_type'] == 1) {
+				//-- All neighbor edges...
+				
+				foreach ($nodeItem['neighbors'] as $neighborEdgeItem) {
+					$idNodeFromEdge = $dbEdge[$neighborEdgeItem[1]]['id_node_from'];
+					$idNodeDestEdge = $dbEdge[$neighborEdgeItem[1]]['id_node_dest'];
+					
+					//-- 1: Keluar dari node, -1: Masuk ke node.
+					$directionFromNode = ($idNodeDestEdge == $nodeItem['id_node'] ? -1 : 1);
+					
+					//-- Select all routes
+					$routeListData = $routeModel->get_edge_route($neighborEdgeItem[1]);
+					
+					foreach ($routeListData as $routeItem) {
+						
+					}
+				}
+			}
+		}
+		
+		//--- Write cache...
+		$dbEdgeStringify = json_encode($dbEdge, true);
+		file_put_contents(SRCPATH."/cache/dbedge.json", $dbEdgeStringify);
+		$dbNodeStringify = json_encode($dbNode, true);
+		file_put_contents(SRCPATH."/cache/dbnode.json", $dbNodeStringify);
+		
 		//--- Validasi input
 		if (!key_exists($idNodeStart, $dbNode) || !key_exists($idNodeGoal, $dbNode)) {
 			return generate_error("Invalid input!");
@@ -174,6 +209,8 @@ class AlgorithmControl {
 			}
 	
 			$currentNodeId = $fScoreIndexCheck;
+			
+			//--------- Sampai di tujuan ------------------
 			if ($currentNodeId == $idNodeGoal) {
 				$fromNode = $idNodeGoal;
 				$idEdge = $cameFrom[$fromNode][1];

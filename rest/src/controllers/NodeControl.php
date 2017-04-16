@@ -28,7 +28,7 @@ class NodeControl {
 	}
 	
 	public function get_node_by_id ($request, $response, $args) {
-		require_once SRCPATH . '\models\NodeModel.php';
+		require_once SRCPATH . '/models/NodeModel.php';
 	
 		$nodeModel = new NodeModel($this->container->get('db'));
 		//print_r($nodeModel->get_node_by_id($args['id']));
@@ -136,8 +136,8 @@ class NodeControl {
 		$nodeType = (isset($postData['node_type']) ? $postData['node_type'] : 0);
 		$idNodeToConnect = (isset($postData['connect_to']) ? $postData['connect_to'] : null);
 			
-		require_once SRCPATH.'\helpers\geo_tools.php';
-		require_once SRCPATH .'\models\NodeModel.php';
+		require_once SRCPATH.'/helpers/geo_tools.php';
+		require_once SRCPATH .'/models/NodeModel.php';
 		$mysqli = $this->container->get('db');
 		
 		$mysqli->autocommit(false);
@@ -180,7 +180,7 @@ class NodeControl {
 				$newEdgeData['creator'] = "'system'";
 				$newEdgeData['reversible'] = 1;
 				
-				require_once SRCPATH.'\models\EdgeModel.php';
+				require_once SRCPATH.'/models/EdgeModel.php';
 				$edgeModel = new EdgeModel($mysqli);
 				
 				if ($newIdEdge = $edgeModel->save_edge($newEdgeData, -1)) {
@@ -238,7 +238,7 @@ class NodeControl {
 	public function edit_node($request, $response, $args) {
 		$postData = $request->getParsedBody();
 		
-		require_once SRCPATH .'\models\NodeModel.php';
+		require_once SRCPATH .'/models/NodeModel.php';
 		require_once SRCPATH.'/helpers/geo_tools.php';
 		$mysqli = $this->container->get('db');
 		$nodeModel = new NodeModel($mysqli);
@@ -295,7 +295,7 @@ class NodeControl {
 	
 	public function delete_node_by_id($request, $response, $args) {
 		$mysqli = $this->container->get('db');
-		require_once SRCPATH.'\models\NodeModel.php';
+		require_once SRCPATH.'/models/NodeModel.php';
 		$nodeModel = new NodeModel($mysqli);
 		
 		$idNode = intval($args['id']);

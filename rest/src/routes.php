@@ -9,7 +9,7 @@ define('SRCPATH', __DIR__);
 // Routes
 
 $app->get('/editor', function ($request, $response, $args) {
-	require_once SRCPATH . '\models\NodeModel.php';
+	require_once SRCPATH . '/models/NodeModel.php';
 	$nodeModel = new NodeModel($this->db);
 	
 	$args['nodeTypeList'] = $nodeModel->get_node_types();
@@ -20,7 +20,7 @@ $app->get('/editor', function ($request, $response, $args) {
 });
 
 $app->group('/node', function() {
-	require SRCPATH . '\controllers\NodeControl.php';
+	require SRCPATH . '/controllers/NodeControl.php';
 	
 	$this->get('/all', NodeControl::class.':get_nodes');
 	$this->post('/add', NodeControl::class.':add_node');
@@ -31,7 +31,7 @@ $app->group('/node', function() {
 });
 
 $app->group('/edge', function() {
-	require SRCPATH . '\controllers\EdgeControl.php';
+	require SRCPATH . '/controllers/EdgeControl.php';
 
 	$this->post('/add', EdgeControl::class.':add_edge');
 	$this->post('/break', EdgeControl::class.':save_edge_and_break');
@@ -44,7 +44,7 @@ $app->group('/edge', function() {
 });
 
 $app->group('/route', function() {
-	require SRCPATH . '\controllers\RouteControl.php';
+	require SRCPATH . '/controllers/RouteControl.php';
 
 	$this->get('/{id}', RouteControl::class.':get_route_by_id');
 	$this->post('/{id}', RouteControl::class.':save_route');
@@ -52,17 +52,17 @@ $app->group('/route', function() {
 });
 	
 $app->group('/algorithm', function() {
-	require SRCPATH . '\controllers\AlgorithmControl.php';
+	require SRCPATH . '/controllers/AlgorithmControl.php';
 	
 	$this->get('/{from}/{dest}', AlgorithmControl::class.':astar');
 });
 $app->group('/modal', function() {
-	require SRCPATH . '\controllers\DialogControl.php';
+	require SRCPATH . '/controllers/DialogControl.php';
 	$this->post('/get_modal', DialogControl::class.':get_modal');
 });
 
 $app->group('/app', function() {
-	require SRCPATH . '\controllers\ApplicationControl.php';
+	require SRCPATH . '/controllers/ApplicationControl.php';
 	$this->get('/init', ApplicationControl::class.':get_init_data');
 	$this->get('/cron', ApplicationControl::class.':refresh_distances');
 });

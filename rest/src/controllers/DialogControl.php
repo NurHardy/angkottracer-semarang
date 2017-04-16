@@ -27,7 +27,7 @@ class DialogControl {
 		
 		$modalHtml = '';
 		if ($postData['name'] == 'node.add') {
-			require_once SRCPATH . '\models\NodeModel.php';
+			require_once SRCPATH . '/models/NodeModel.php';
 			$nodeModel = new NodeModel($this->container->get('db'));
 			
 			$this->_data['formId'] = 'modal_form';
@@ -49,7 +49,7 @@ class DialogControl {
 				return "Incomplete parameter";
 			}
 			
-			require_once SRCPATH . '\models\NodeModel.php';
+			require_once SRCPATH . '/models/NodeModel.php';
 			$nodeModel = new NodeModel($this->container->get('db'));
 			
 			$this->_data['dataNode1'] = $nodeModel->get_node_by_id(intval($postData['data']['id_node_1']));
@@ -58,7 +58,7 @@ class DialogControl {
 			$modalHtml = $this->renderer->render($response, 'modal/add_edge.php', $this->_data);
 			
 		} else if ($postData['name'] == 'route.load') {
-			require_once SRCPATH . '\models\RouteModel.php';
+			require_once SRCPATH . '/models/RouteModel.php';
 			$routeModel = new RouteModel($this->container->get('db'));
 			
 			$this->_data['routeList'] = $routeModel->get_routes();
