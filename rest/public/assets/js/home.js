@@ -170,17 +170,54 @@
 		}
 	}
 	
+	var currentStepSeq = 0;
+	var stepSeqCount = 0;
+	function nav_directionstep(navOpt) {
+		oldSeq = currentStepSeq;
+		if (navOpt == '+') {
+			if (currentStepSeq < stepSeqCount) currentStepSeq++;
+		} else if (navOpt == '-') {
+			if (currentStepSeq > 0) currentStepSeq--;
+		} else if (navOpt == 'max') {
+			currentStepSeq = stepSeqCount-1;
+		} else {
+			currentStepSeq = navOpt;
+		}
+		
+		if (currentStepSeq == oldSeq) return false;
+		
+		$('.searchresult_step').hide();
+		$('#searchresult_step_'+currentStepSeq).show();
+		
+		var currentSeqIdNode = $('#searchresult_step_'+currentStepSeq).data('idnode');
+		
+		//-- Get node info from library...
+		var selectedIdMarker;
+		if ((currentSeqIdNode in nodeMarkerMap_) && (currentSeqIdNode in neighborNodeCache_)) {
+			selectedIdMarker = nodeMarkerMap_[currentSeqIdNode];
+		} else {
+			return false;
+		}
+		
+		var focusPos = activeMarkers[selectedIdMarker].getPosition();
+		map.panTo(focusPos);
+		
+		return false;
+	}
 	function get_direction() {
 		if (focusedMarker == null) return;
 		
 		currentState = STATE_SELECTNODE;
 		node_selected_callback = function (selectedMarker) {
 			_ajax_send({
-				
+				'debug': true
 			}, function(jsonData){
 				clear_dirlines();
 				toastr.success('Done. ' + jsonData.data.benchmark);
 				$('#routedebug_logpanel').html(jsonData.data.routeinfo);
+				$('#searchresult_step_container').html(jsonData.data.loopstep);
+				
+				nav_directionstep(0);
 				
 				var edgeCount = jsonData.data.sequence.length;
 				var prevPosition = null;
@@ -201,6 +238,7 @@
 					prevPosition = jsonData.data.sequence[ctr].position;
 				}
 				
+				stepSeqCount = $('.searchresult_step').length;
 				init_routedebug();
 			}, "Memproses...", URL_ALGORITHM_AJAX+'/'+selectedMarker.id_node+'/'+focusedMarker.id_node,
 			'GET');

@@ -38,8 +38,10 @@ function postinit_modal() {
 	</div>
 	<div style="height: 48px;">
 		<div class="pull-right">
-			<button type="button" class="btn btn-danger modal-closebtn">Cancel</button>
-			<button type="submit" class="btn btn-primary">Submit</button>
+			<button type="button" class="btn btn-danger modal-closebtn">
+				<i class="fa fa-remove"></i> Cancel</button>
+			<button type="submit" class="btn btn-primary">
+				<i class="fa fa-check-circle"></i> Submit</button>
 		</div>
 	</div>
 	<input type="hidden" name="data" value="<?php echo htmlspecialchars($edgeData); ?>" />

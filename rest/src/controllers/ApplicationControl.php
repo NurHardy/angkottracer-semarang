@@ -29,7 +29,9 @@ class ApplicationControl {
 		
 		require_once SRCPATH.'/models/NodeModel.php';
 		require_once SRCPATH.'/models/EdgeModel.php';
+		require_once SRCPATH.'/models/RouteModel.php';
 		require_once SRCPATH.'/helpers/geo_tools.php';
+		require_once SRCPATH."/helpers/cache_tools.php";
 		
 		$mysqli = $this->container->get('db');
 		$nodeModel = new NodeModel($mysqli);
@@ -90,6 +92,8 @@ class ApplicationControl {
 			
 		} // End foreach
 		
+		$routeModel = new RouteModel($mysqli);
+		cache_build($nodeModel, $edgeModel, $routeModel);
 		$timeEnd = microtime(true);
 		$execution_time = round(($timeEnd - $this->_timeStart),4);
 		

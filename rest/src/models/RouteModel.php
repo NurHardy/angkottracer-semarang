@@ -126,6 +126,7 @@ class RouteModel {
 					'id_node_from' => 'edges.id_node_from',
 					'id_node_dest' => 'edges.id_node_dest',
 					'id_road' => 'edges.id_road',
+					'distance' => 'edges.distance',
 					'polyline_data' => 'AsText(edges.polyline)'
 			));
 		}

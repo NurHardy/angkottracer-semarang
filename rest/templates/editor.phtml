@@ -27,9 +27,7 @@
 		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/select2.min.css'); ?>" type="text/css" media="screen" />
 		
 		<script src="<?php echo $baseUrl.('/assets/js/jquery.min.js'); ?>"></script>
-	</head>
-	<body>
-
+		
 <style>
 .context-menu {
 	width: 200px;
@@ -110,7 +108,12 @@
 }
 
 #site_floatpanel .fpanel_item {display:none;}
+
+.searchresult_step {display:none;}
 </style>
+	</head>
+	<body>
+
 <div id="site_mainwrapper">
 	<div id="site_leftpanel">
 		<h2>Angkot Tracer</h2>
@@ -287,7 +290,7 @@
 				<div class="btn-group" style="margin-top:5px;">
 					<button type="button" class="btn btn-default btn-sm dropdown-toggle"
 							data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-						<i class="fa fa-road"></i> Get Direction <span class="caret"></button>
+						<i class="fa fa-road"></i> Get Direction <span class="caret"></span></button>
 					<ul class="dropdown-menu" id="requestdirection_opts" style="min-width: 120px;">
 						<li><a href="#reqdir" onclick="return edge_getdir();">From A to B</a></li>
 						<li><a href="#reqdirrev" onclick="return edge_getdir(-1);">From B to A</a></li>
@@ -317,33 +320,46 @@
 			<a href="#" class="btn btn-default btn-sm btn-block" onclick="return node_move_reset();"><i class="fa fa-undo"></i> Reset</a>
 			<a href="#" class="btn btn-danger btn-sm btn-block" onclick="return node_delete();"><i class="fa fa-trash"></i> Delete</a>
 		</div>
-		<!-- 
-		<div id="fpanel_searchresult" class="fpanel_item" style="width: 300px;">
-			<div class="list-group">
-				<a href="#" class="list-group-item">
-					<div class="media">
-					  <div class="media-left">
-					  	<i class="fa fa-bus fa-2x"></i>
-					  </div>
-					  <div class="media-body">
-					    Test<br />
-					    Mlampah
-					  </div>
-					</div>
-				</a>
-				<a href="#" class="list-group-item">
-					<div class="media">
-					  <div class="media-left">
-					  	<i class="fa fa-male fa-2x"></i>
-					  </div>
-					  <div class="media-body">
-					    Test<br />
-					    Mlampah
-					  </div>
-					</div>
-				</a>
+		<div id="fpanel_searchresult" class="fpanel_item" style="width: 450px;">
+			<div style="background-color:#eee;padding:5px;">
+				<a href="#" onclick="return nav_directionstep(0);"> First</a> |
+				<a href="#" onclick="return nav_directionstep('-');"> Prev</a>
+				<div class="pull-right">
+					<a href="#" onclick="return nav_directionstep('+');"> Next</a> |
+					<a href="#" onclick="return nav_directionstep('max');"> Last</a>
+				</div>
 			</div>
-		</div> -->
+			<div id="searchresult_step_container" style="min-height: 400px;overflow-y:scroll;">
+				
+			</div>
+			<div id="searchresult_step_result" style="display:none;">
+				<div class="list-group">
+					<a href="#" class="list-group-item">
+						<div class="media">
+						  <div class="media-left">
+						  	<i class="fa fa-bus fa-2x"></i>
+						  </div>
+						  <div class="media-body">
+						    Test<br />
+						    Mlampah
+						  </div>
+						</div>
+					</a>
+					<a href="#" class="list-group-item">
+						<div class="media">
+						  <div class="media-left">
+						  	<i class="fa fa-male fa-2x"></i>
+						  </div>
+						  <div class="media-body">
+						    Test<br />
+						    Mlampah
+						  </div>
+						</div>
+					</a>
+				</div>
+			</div><!-- End step box -->
+			
+		</div>
 	</div>
 	<div id="site_floatpanel_extension">
 		<div id="fpanel_nodeopts" class="fpanelext_item" style="width: 200px; display:none;">

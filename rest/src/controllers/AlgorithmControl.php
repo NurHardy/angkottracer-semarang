@@ -29,7 +29,10 @@ class AlgorithmControl {
 		$idNodeFrom = intval($args['from']);
 		$idNodeDest = intval($args['dest']);
 		
-		$this->_data = $this->_do_astar_algorithm($idNodeFrom, $idNodeDest);
+		$isDebug = $request->getQueryParam('debug', false);
+		$isDebug = !empty($isDebug);
+		
+		$this->_data = $this->_do_astar_algorithm($idNodeFrom, $idNodeDest, $isDebug);
 		
 		return $response->withJson($this->_data, $this->_status);
 	}
@@ -95,76 +98,61 @@ class AlgorithmControl {
 	 return total_path
 	 */
 	
-	private function _do_astar_algorithm($idNodeStart, $idNodeGoal) {
+	private function _do_astar_algorithm($idNodeStart, $idNodeGoal, $verbose = false) {
 		$timeStart = $this->_timeStart;
 	
 		//require(APP_PATH."/controller/main/data.php");
 		//$idNodeStart = $_POST['id_node_start'];
 		//$idNodeGoal = $_POST['id_node_end'];
 	
+		$currentDate = date("Y-m-d H:i:s");
+		
 		if (!isset($configVerbose)) $configVerbose = true;
 		$shortestPathSeq = array();
 		$verboseData = "";
+		$verboseHtml = "";
 		$publicRouteOut = "";
 	
-		//--- Ambil seluruh data dan bangun node ketentanggaan
+		//--- Ambil seluruh data dari cache...
 		require_once(SRCPATH."/models/RouteModel.php");
 		require_once(SRCPATH."/models/NodeModel.php");
 		require_once(SRCPATH."/models/EdgeModel.php");
 		require_once(SRCPATH."/helpers/geo_tools.php");
 		require_once(SRCPATH."/helpers/gmap_tools.php");
+		require_once(SRCPATH."/helpers/cache_tools.php");
 	
 		$nodeModel = new NodeModel($this->container->get('db'));
 		$edgeModel = new EdgeModel($this->container->get('db'));
 		$routeModel = new RouteModel($this->container->get('db'));
 		
-		$dbNode = $nodeModel->get_nodes(-1);
-		$dbEdge = $edgeModel->get_edges();
-	
-		foreach ($dbEdge as $edgeKey => $edgeItem) {
-			// We do not need the polyline field...
-			unset($dbEdge[$edgeKey]['polyline']);
-			
-			$nodeFrom = $edgeItem['id_node_from'];
-			$nodeDest = $edgeItem['id_node_dest'];
-	
-			$dbNode[$nodeFrom]['neighbors'][$nodeDest] = array(floatval($edgeItem['distance']), intval($edgeItem['id_edge']));
-			if ($edgeItem['reversible'] == 1) {
-				$dbNode[$nodeDest]['neighbors'][$nodeFrom] = array(floatval($edgeItem['distance']), intval($edgeItem['id_edge']));
-			}
-		}
-	
-		foreach ($dbNode as $nodeKey => $nodeItem) {
-			// We do not need the location field...
-			unset($dbNode[$nodeKey]['location']);
-			$dbNode[$nodeKey]['shuttle_buses'] = ['depart' => [], 'arrive' => []];
-			
-			// Shelter BRT?
-			if ($nodeItem['node_type'] == 1) {
-				//-- All neighbor edges...
-				
-				foreach ($nodeItem['neighbors'] as $neighborEdgeItem) {
-					$idNodeFromEdge = $dbEdge[$neighborEdgeItem[1]]['id_node_from'];
-					$idNodeDestEdge = $dbEdge[$neighborEdgeItem[1]]['id_node_dest'];
-					
-					//-- 1: Keluar dari node, -1: Masuk ke node.
-					$directionFromNode = ($idNodeDestEdge == $nodeItem['id_node'] ? -1 : 1);
-					
-					//-- Select all routes
-					$routeListData = $routeModel->get_edge_route($neighborEdgeItem[1]);
-					
-					foreach ($routeListData as $routeItem) {
-						
-					}
-				}
-			}
+		$dbNode = [];
+		$dbEdge = [];
+		$dbRoute = $routeModel->get_routes();
+		
+		//--- Build (if not exist yet), and read cache file...
+		if (!file_exists(SRCPATH."/cache/dbnode.json") ||
+			!file_exists(SRCPATH."/cache/dbedge.json")) {
+			cache_build($nodeModel, $edgeModel, $routeModel);
 		}
 		
-		//--- Write cache...
-		$dbEdgeStringify = json_encode($dbEdge, true);
-		file_put_contents(SRCPATH."/cache/dbedge.json", $dbEdgeStringify);
-		$dbNodeStringify = json_encode($dbNode, true);
-		file_put_contents(SRCPATH."/cache/dbnode.json", $dbNodeStringify);
+		$dbNodeJson = file_get_contents(SRCPATH."/cache/dbnode.json");
+		if (!$dbNodeJson) {
+			return generate_error("Server cache data error. Please contact administrator.");
+		}
+		
+		$dbNode = json_decode($dbNodeJson, true);
+			
+		$dbEdgeJson = file_get_contents(SRCPATH."/cache/dbedge.json");
+		if (!$dbEdgeJson) {
+			return generate_error("Server cache data error. Please contact administrator.");
+		}
+		
+		$dbEdge = json_decode($dbEdgeJson, true);
+		
+		//--- Validasi data
+		if (($dbNode == null) || ($dbEdge == null)) {
+			return generate_error("Server cache data error. Please contact administrator.");
+		}
 		
 		//--- Validasi input
 		if (!key_exists($idNodeStart, $dbNode) || !key_exists($idNodeGoal, $dbNode)) {
@@ -174,7 +162,7 @@ class AlgorithmControl {
 	
 		// Loop maximal
 		// Kita gunakan untuk trap apabila terjadi infinite loop...
-		define('MAX_LOOP', 1000);
+		define('MAX_LOOP', 10000);
 	
 		//--- Mulai algoritma A*
 		$visitedNodes = array();
@@ -244,7 +232,12 @@ class AlgorithmControl {
 							'lng' => floatval($currentNodeData['location_lng'])
 					);
 					if ($currentIdEdge) {
+						$vCurrentEdge = $currentIdEdge;
+						if ($currentIdEdge > 10000) {
+							$currentIdEdge = $dbEdge[$currentIdEdge]['id_edge'];
+						}
 						$edgeData = $edgeModel->get_edge_by_id($currentIdEdge);
+						
 						if ($edgeData) {
 							$pointArr = mysql_to_latlng_coords($edgeData['polyline_data']);
 	
@@ -260,12 +253,24 @@ class AlgorithmControl {
 							}
 	
 							//$publicRouteOut .= "- ". $edgeData['id_edge'] . " >> ";
-							$routeList = $routeModel->get_edge_route($edgeData['id_edge']);
+							
+							//-- Edge has only one route?
+							if (!empty($dbEdge[$vCurrentEdge]['route'])) {
+								$routeList = [ [
+									'id_route' => $dbEdge[$vCurrentEdge]['route'],
+									'id_edge' => $currentIdEdge,
+									'direction' => $routeDir,
+									'order' => 0,
+								] ];
+							} else {
+								//-- Ambil trayek yang melalui busur... (yang angkot saja)
+								$routeList = $routeModel->get_edge_route($edgeData['id_edge']);								
+							}
 	
 							$currentSolution = [];
 	
 							if (empty($routeList)) {
-								$currentSolution[] = 0;
+								$currentSolution[] = 0; // Jalan kaki
 							} else {
 								foreach ($routeList as $itemRoute) {
 									//-- Ambil trayek yang searah saja...
@@ -278,7 +283,8 @@ class AlgorithmControl {
 	
 							//$publicRouteOut .= "\n";
 	
-							if (empty($currentRoute)) {
+							// Inisiasi jika currentRoute belum ada isinya...
+							if (count($currentRoute) == 0) {
 								foreach ($currentSolution as $itemSolution) {
 									$currentRoute[] = $itemSolution;
 										
@@ -295,7 +301,7 @@ class AlgorithmControl {
 							$newRouteSolution = [];
 							//-- Untuk setiap trayek baru yang ditemukan
 							foreach ($currentSolution as $itemSolution) {
-									
+								//-- Merupakan trayek baru, yang tidak sejalur..
 								if (!in_array($itemSolution, $intersectRoute)) {
 									//-- Clone setiap solusi...
 									foreach ($routeAlts as $idxAlt => $itemAlt) {
@@ -317,7 +323,7 @@ class AlgorithmControl {
 										];
 									}
 								} else {
-									//-- Ada di intersect...
+									//-- Ada di intersect..., tambah jarak tempuh
 									foreach ($routeAlts as $idxAlt => $itemAlt) {
 										$lastIdx = count($itemAlt)-1;
 										$routeAlts[$idxAlt][$lastIdx]['dist'] += $edgeData['distance'];
@@ -406,25 +412,32 @@ class AlgorithmControl {
 			if (!isset($gScore[$currentNodeId])) $gScore[$currentNodeId] = 100.0;
 			//$neighborNodes = get_neighbor_edges($current, false);
 			$verboseData .= "------------------ Current Node: ".$currentNodeId." (".$dbNode[$currentNodeId]['node_name'].")-----\n";
+			$verboseHtml .= '<div id="searchresult_step_'.$loopCount.'" data-idnode="'.$currentNodeId.'" class="searchresult_step">';
+			$verboseHtml .= '<p>Current node: #'.$currentNodeId.' ('.htmlspecialchars($dbNode[$currentNodeId]['node_name']).')</p>';
 			//$verboseData .= "Why? :\n";
 			//print_r($fScore);
 			//$verboseData .= "\n";
 			//print_r($gScore);
 			//$verboseData .= "\n";
+			$verboseHtml .= '<table class="table table-condensed"><thead><tr><th>#id</th><th>Name</th><th>Distance</th></tr></thead><tbody>';
 			foreach ($dbNode[$currentNodeId]['neighbors'] as $neighborNodeId => $neighborNodeData) {
+				$verboseHtml .= '<tr><td>#'.$neighborNodeId.'</td><td>'.htmlspecialchars($dbNode[$neighborNodeId]['node_name']).
+					'</td><td>'.$neighborNodeData[0];
 				//$neighborNodeId = $neighborNode['id_node'];
 				$verboseData .= " o Neighbor node : ".$neighborNodeId." (".$dbNode[$neighborNodeId]['node_name']."), dist: ".$neighborNodeData[0]."\n";
 				if (in_array($neighborNodeId, $visitedNodes)) {
 					$verboseData .= "-- ignored\n";
+					$verboseHtml .= ' (ignored)';
 					continue;
 				}
-					
+				
 				if (!isset($gScore[$neighborNodeId])) $gScore[$neighborNodeId] = 100.0;
 				$tentativegScore = $gScore[$currentNodeId] + $neighborNodeData[0];
 					
 				if (!key_exists($neighborNodeId, $openNodes)) {
 					$openNodes[$neighborNodeId] = 1;
 				} else if ($tentativegScore >= $gScore[$neighborNodeId]) {
+					$verboseHtml .= ' (ignored score: '.$tentativegScore.')';
 					$verboseData .= "-- ignored score : ".$tentativegScore."\n";
 					continue;
 				}
@@ -439,13 +452,15 @@ class AlgorithmControl {
 						);
 					
 				$verboseData .= "\n";
+				$verboseHtml .= '</td></tr>'.PHP_EOL;
 			} // End foreach neighbor
+			$verboseHtml .= '</tbody></table>'.PHP_EOL;
 			$loopCount++;
+			
+			$verboseHtml .= "</div><!-- end step -->".PHP_EOL;
 		}
 	
 		//---- Build transit information
-		$dbRoute = $routeModel->get_routes();
-	
 		$publicRouteOut .= "\n-  ROUTE -----\n\n"; // . print_r($routeAlts, true);
 	
 		$altCounter = 1;
@@ -482,14 +497,19 @@ class AlgorithmControl {
 	
 		$verboseData .= "</pre>";
 	
-		$jsonResponse = array(
-				'status' => 'ok',
-				'data' => array(
-						//'verbose' => $verboseData,
+		$responseData = array(
 						'sequence' => $shortestPathSeq,
 						'benchmark' => $benchmarkResult,
 						'routeinfo' => $publicRouteOut
-				)
+				);
+		
+		if ($verbose) {
+			$responseData['verbose'] = $verboseData;
+			$responseData['loopstep'] = $verboseHtml;
+		}
+		$jsonResponse = array(
+				'status' => 'ok',
+				'data' => $responseData
 		);
 	
 		return $jsonResponse;
