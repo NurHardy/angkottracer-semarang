@@ -1,38 +1,99 @@
+<?php
+/*
+ * templates/index.phtml
+ * ----------------------
+ * Main public application interface
+ */
+	if (!defined('GOOGLE_APIKEY')) return;
+	
+?>
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8"/>
-        <title>Slim 3</title>
-        <link href='//fonts.googleapis.com/css?family=Lato:300' rel='stylesheet' type='text/css'>
-        <style>
-            body {
-                margin: 50px 0 0 0;
-                padding: 0;
-                width: 100%;
-                font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-                text-align: center;
-                color: #aaa;
-                font-size: 18px;
-            }
 
-            h1 {
-                color: #719e40;
-                letter-spacing: -3px;
-                font-family: 'Lato', sans-serif;
-                font-size: 100px;
-                font-weight: 200;
-                margin-bottom: 0;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Slim</h1>
-        <div>a microframework for PHP</div>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content=""/>
+		<meta name="keywords" content=""/>
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<title><?php
+			if (isset($data['pageTitle'])) echo htmlspecialchars($data['pageTitle']);
+			else echo "Untitled";
+		?> | AngkotTracer</title>
+		<link rel="icon" href="<?php echo $baseUrl.('/assets/favicon.ico'); ?>" type="image/x-icon" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/bootstrap.min.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/font-awesome.min.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/toastr.min.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/global.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/select2.min.css'); ?>" type="text/css" media="screen" />
+		
+		<script src="<?php echo $baseUrl.('/assets/js/jquery.min.js'); ?>"></script>
+<style>
+#site_floatpanel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  background-color: #fff;
+  padding: 7px;
+  border: 1px solid #999;
+  font-family: 'Roboto','sans-serif';
+  line-height: 30px;
+  min-height:32px;
+}
+</style>
+	</head>
+	<body>
 
-        <?php if (isset($name)) : ?>
-            <h2>Hello <?= htmlspecialchars($name); ?>!</h2>
-        <?php else: ?>
-            <p>Try <a href="http://www.slimframework.com">SlimFramework</a>
-        <?php endif; ?>
-    </body>
+		<div id="site_mainwrapper" style="min-width:800px;">
+			<div id="site_googlemaps" style="margin-left:0px;"></div>
+			
+			<div id="site_floatpanel">
+				<div id="fpanel_home" style="width: 300px;">
+					<h2>Angkot Semarang</h2>
+					<hr />
+					<form class="horizontal-form" action="#submit" id="site_mainform" onsubmit="return mainform_submit();">
+						<div class="form-group">
+							<label for="txt_node_start">From</label>
+							<div>
+								<span style="color:#999;">Unselected</span> |
+								<a href=""><i class="fa fa-crosshairs"></i> Select location</a> |
+								<a href=""><i class="fa fa-crosshairs"></i> Type place</a>
+								<div id="selector-place">
+									<input type="text" class="form-control input-sm" name="txt_node_start"
+										id="txt_node_start" placeholder="Tempat berangkat." />
+								</div>
+							</div>
+							
+								
+							
+						</div>
+						<div class="form-group">
+							<label for="txt_node_dest">Destination</label>
+							<input type="text" class="form-control input-sm" name="txt_node_dest"
+								id="txt_node_dest" placeholder="Tempat tujuan." />
+						</div>
+						
+						<button type="submit" class="btn btn-primary btn-block" disabled id="btn_beginsearch">
+							<i class="fa fa-search"></i> Search Route</button>
+					</form>
+				</div>
+			</div>
+		</div>
+		
+<div id='site_overlay_process'>
+	<div id='site_ov_box_process'>
+		<div id='site_ov_msg_process'>Sedang memproses... Mohon tunggu...</div>
+		<img src='<?php echo $baseUrl.('/assets/images/loader.gif'); ?>' alt='Loading...' />
+	</div>
+</div>
+
+<script async defer
+	src="https://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLE_APIKEY; ?>&libraries=places&callback=init_map"></script>
+<script src="<?php echo $baseUrl.('/assets/js/bootstrap.min.js'); ?>"></script>
+<script src="<?php echo $baseUrl.('/assets/js/toastr.min.js'); ?>"></script>
+<script src="<?php echo $baseUrl.('/assets/js/select2.min.js?v='.APPVER); ?>"></script>
+<script src="<?php echo $baseUrl.('/assets/js/global.js?v='.APPVER); ?>"></script>
+<script src="<?php echo $baseUrl.('/assets/js/frontpage.js?v='.APPVER); ?>"></script>
+
+	</body>
 </html>

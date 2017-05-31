@@ -17,7 +17,7 @@ class EdgeModel {
 		$this->_db = $dbConnection;
 	}
 	
-	function get_edges($fetchPolylineData = false) {
+	function get_edges($fetchPolylineData = false, $asArray = false) {
 		$fieldList = array('*');
 		if ($fetchPolylineData)
 			$fieldList['polyline_data'] = 'AsText(polyline)';
@@ -32,10 +32,18 @@ class EdgeModel {
 		$index = 0;
 		$listRecord = array();
 
-		while ($row = mysqli_fetch_array($queryResult, MYSQLI_ASSOC)) {
-			$listRecord[$index] = $row;
-			$index++;
+		if ($asArray) {
+			while ($row = mysqli_fetch_array($queryResult, MYSQLI_ASSOC)) {
+				$index = $row['id_edge'];
+				$listRecord[$index] = $row;
+			}
+		} else {
+			while ($row = mysqli_fetch_array($queryResult, MYSQLI_ASSOC)) {
+				$listRecord[$index] = $row;
+				$index++;
+			}
 		}
+		
 		return $listRecord;
 	}
 	

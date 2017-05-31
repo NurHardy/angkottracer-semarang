@@ -8,6 +8,11 @@ define('SRCPATH', __DIR__);
 
 // Routes
 
+$app->get('/', function ($request, $response, $args) {
+	// Render index view
+	return $this->renderer->render($response, 'index.phtml', $args);
+});
+
 $app->get('/editor', function ($request, $response, $args) {
 	require_once SRCPATH . '/models/NodeModel.php';
 	$nodeModel = new NodeModel($this->db);

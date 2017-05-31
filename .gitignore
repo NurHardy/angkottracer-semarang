@@ -47,6 +47,7 @@ Temporary Items
 .apdisk
 
 # SLIM Framework
+/rest/src/cache/*
 /rest/vendor/
 /rest/logs/*
 !/rest/logs/README.md

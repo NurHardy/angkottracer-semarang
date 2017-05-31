@@ -255,6 +255,7 @@ class AlgorithmControl {
 							//$publicRouteOut .= "- ". $edgeData['id_edge'] . " >> ";
 							
 							//-- Edge has only one route?
+							/*
 							if (!empty($dbEdge[$vCurrentEdge]['route'])) {
 								$routeList = [ [
 									'id_route' => $dbEdge[$vCurrentEdge]['route'],
@@ -265,19 +266,25 @@ class AlgorithmControl {
 							} else {
 								//-- Ambil trayek yang melalui busur... (yang angkot saja)
 								$routeList = $routeModel->get_edge_route($edgeData['id_edge']);								
-							}
-	
+							} */
+							
 							$currentSolution = [];
-	
-							if (empty($routeList)) {
+							
+							// Tidak dilalui angkot?
+							if (count($dbEdge[$vCurrentEdge]['routes']) == 0) {
 								$currentSolution[] = 0; // Jalan kaki
 							} else {
-								foreach ($routeList as $itemRoute) {
+								foreach ($dbEdge[$vCurrentEdge]['routes'] as $idRoute => $itemRouteDir) {
 									//-- Ambil trayek yang searah saja...
-									if ($routeDir == $itemRoute['direction']) {
-										$currentSolution[] = $itemRoute['id_route'];
+									if ($routeDir == $itemRouteDir) {
+										$currentSolution[] = $idRoute;
 										//$publicRouteOut .= $itemRoute['id_route'].", ";
 									}
+								}
+								
+								//-- Tidak ada angkot yang searah?
+								if (empty($currentSolution)) {
+									$currentSolution[] = 0; // Jalan kaki
 								}
 							}
 	

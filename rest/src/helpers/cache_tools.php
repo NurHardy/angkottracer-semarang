@@ -9,13 +9,16 @@
  */
 function cache_build($nodeModel, $edgeModel, $routeModel) {
 	$dbNode = $nodeModel->get_nodes(-1);
-	$dbEdge = $edgeModel->get_edges();
+	$dbEdge = $edgeModel->get_edges(false, true);
 	$dbRoute = $routeModel->get_routes();
 
 	foreach ($dbEdge as $edgeKey => $edgeItem) {
 		// We do not need the polyline field...
 		unset($dbEdge[$edgeKey]['polyline']);
 
+		// Init values
+		$dbEdge[$edgeKey]['routes'] = [];
+		
 		$nodeFrom = $edgeItem['id_node_from'];
 		$nodeDest = $edgeItem['id_node_dest'];
 
@@ -23,6 +26,7 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 		if ($edgeItem['reversible'] == 1) {
 			$dbNode[$nodeDest]['neighbors'][$nodeFrom] = array(floatval($edgeItem['distance']), intval($edgeItem['id_edge']));
 		}
+		
 	}
 
 	//-- Init dbNode data
@@ -38,17 +42,17 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 	//-- Build route edges
 	$idNodeFrom = 0; $idNodeDest = 0;
 	foreach ($dbRoute as $routeKey => $routeItem) {
+		$edgeSeq = $routeModel->get_route_edges($routeItem['id_route'], true);
+
+		//-- Skip if route has no edge
+		if (empty($edgeSeq)) continue;
+
+		$lastIdNode = null;
+		$lastNewIdNode = null;
+
+		$nextNode = 0;
 		// Shuttle bus...
 		if ($routeItem['vehicle_type'] == 2) {
-			$edgeSeq = $routeModel->get_route_edges($routeItem['id_route'], true);
-
-			//-- Skip if route has no edge
-			if (empty($edgeSeq)) continue;
-
-			$lastIdNode = null;
-			$lastNewIdNode = null;
-
-			$nextNode = 0;
 			foreach ($edgeSeq as $routeEdgeItem) {
 				if ($routeEdgeItem['direction'] > 0) {
 					$idNodeFrom = $routeEdgeItem['id_node_from'];
@@ -90,7 +94,7 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 						'id_edge' => $routeEdgeItem['id_edge'],
 						'id_node_from' => $lastNewIdNode,
 						'id_node_dest' => $nextNode,
-						'route' => $routeItem['id_route']
+						'routes' => [$routeItem['id_route'] => $routeEdgeItem['direction']]
 				);
 				$dbNode[$lastNewIdNode]['neighbors'][$nextNode] = array(floatval($routeEdgeItem['distance'])*0.9, $newEdgeId);
 
@@ -104,7 +108,13 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 				$lastIdNode = $idNodeDest;
 
 			} // End foreach routeEdge
-
+		} else { // Angkot biasa
+			foreach ($edgeSeq as $routeEdgeItem) {
+				if (isset($dbEdge[$routeEdgeItem['id_edge']])) {
+					$dbEdge[$routeEdgeItem['id_edge']]['routes'][$routeItem['id_route']] = $routeEdgeItem['direction'];
+				}
+			}
+			
 		} // End if
 
 	} // End foreach Route
