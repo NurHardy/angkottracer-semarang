@@ -3,7 +3,7 @@
 // System contants
 //define('GOOGLEMAP_APIKEY', "AIzaSyCB_Tzs_EZ1exoXELhuq_sOlkqhrifjezw");
 define('GOOGLE_APIKEY', 'AIzaSyB2LvXICy-Je6QQFgeIi32FnbA8r-dnqU4');
-define('APPVER', 'v0.5.4.1434731');
+define('APPVER', 'v0.5.4.14347473');
 define('SRCPATH', __DIR__);
 
 // Routes
@@ -59,6 +59,7 @@ $app->group('/route', function() {
 $app->group('/algorithm', function() {
 	require SRCPATH . '/controllers/AlgorithmControl.php';
 	
+	$this->get('/debug', AlgorithmControl::class.':search_route');
 	$this->get('/{from}/{dest}', AlgorithmControl::class.':astar');
 });
 $app->group('/modal', function() {

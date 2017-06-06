@@ -25,6 +25,81 @@ class AlgorithmControl {
 		$this->_timeStart = microtime(true);
 	}
 	
+	public function search_route($request, $response, $args) {
+		//-- Get params
+		$startPos = $request->getQueryParam('start', null);
+		$destPos = $request->getQueryParam('dest', null);
+		
+		if (($startPos === null) || ($destPos === null)) {
+			$this->_status = HTTPSTATUS_BADREQUEST;
+			$this->_data = generate_error("Start or destination point is not specified.");
+			return $response->withJson($this->_data, $this->_status);
+		}
+		
+		require_once(SRCPATH."/helpers/geo_tools.php");
+		require_once(SRCPATH."/helpers/gmap_tools.php");
+		require_once(SRCPATH."/models/NodeModel.php");
+		
+		$nodeModel = new NodeModel($this->container->get('db'));
+		
+		//-- Process input paramter
+		$nodeList = $nodeModel->get_nodes_by_radius($startPos, 1.0);
+		
+		//-- Cari jarak paling minimal...
+		$minDist = null;
+		$minDistNode = null;
+		foreach ($nodeList as $curKey => $nodeItem) {
+			$calcDist = node_distance($startPos, ['lat' => $nodeItem['location_lat'], 'lng' => $nodeItem['location_lng']], 'K');
+			if ($minDist === null) {
+				$minDist = $calcDist;
+				$minDistNode = $nodeItem['id_node'];
+			} else if ($calcDist < $minDist) {
+				$minDist = $calcDist;
+				$minDistNode = $nodeItem['id_node'];
+			}
+			$nodeList[$curKey]['dist'] = $calcDist;
+		}
+		
+		if ($minDistNode === null) {
+			$this->_data = generate_error('Route not found.1');
+			return $response->withJson($this->_data, $this->_status);
+		}
+		
+		$idNodeFrom = $minDistNode;
+		
+		//-- Cari jarak paling minimal...
+		$nodeList = $nodeModel->get_nodes_by_radius($destPos, 1.0);
+		
+		$minDist = null;
+		$minDistNode = null;
+		foreach ($nodeList as $curKey => $nodeItem) {
+			$calcDist = node_distance($destPos, ['lat' => $nodeItem['location_lat'], 'lng' => $nodeItem['location_lng']], 'K');
+			if ($minDist === null) {
+				$minDist = $calcDist;
+				$minDistNode = $nodeItem['id_node'];
+			} else if ($calcDist < $minDist) {
+				$minDist = $calcDist;
+				$minDistNode = $nodeItem['id_node'];
+			}
+			$nodeList[$curKey]['dist'] = $calcDist;
+		}
+		
+		if ($minDistNode === null) {
+			$this->_data = generate_error('Route not found.2');
+			return $response->withJson($this->_data, $this->_status);
+		}
+		
+		$idNodeDest = $minDistNode;
+		
+		//-- Action
+		$this->_data = $this->_do_astar_algorithm($idNodeFrom, $idNodeDest, false);
+		
+		//$this->_data = generate_message('ok', 'Operation suceeded.');
+		//$this->_data['data'] = $nodeList;
+		
+		return $response->withJson($this->_data, $this->_status);
+		
+	}
 	public function astar($request, $response, $args) {
 		$idNodeFrom = intval($args['from']);
 		$idNodeDest = intval($args['dest']);
@@ -165,6 +240,8 @@ class AlgorithmControl {
 		define('MAX_LOOP', 10000);
 	
 		//--- Mulai algoritma A*
+		$routeAlts = []; // Data list solusi transit
+		
 		$visitedNodes = array();
 		$openNodes = array($idNodeStart => 1);
 	
@@ -407,7 +484,7 @@ class AlgorithmControl {
 	
 					$verboseData .= "   ".$counter.". ".$dbNode[$finalRoute[$i][0]]['node_name']."\n";
 					$counter++;
-				}
+				} // End for (node counter)
 					
 				$verboseData .= "----------------------------------------\n";
 				break;
@@ -469,17 +546,29 @@ class AlgorithmControl {
 	
 		//---- Build transit information
 		$publicRouteOut .= "\n-  ROUTE -----\n\n"; // . print_r($routeAlts, true);
+		$routeWaysData = [];
 	
 		$altCounter = 1;
 		foreach ($routeAlts as $itemAlt) {
 			$publicRouteOut .= "o Cara ".$altCounter.":\n";
 	
+			$distTotal = 0.0;
+			$walkDistTotal = 0.0;
 			$feeTotal = 0;
+			$stepsData = [];
 			foreach ($itemAlt as $transitItem) {
+				$stepIcon = 'icon.png';
+				$htmlText = '';
+				
 				$transitFee = 0;
 				if ($transitItem['id'] == 0) {
+					$htmlText = "Jalan kaki sepanjang ".$transitItem['dist']." km.";
 					$publicRouteOut .= "-- Jalan kaki ".$transitItem['dist']." km.\n";
+					$walkDistTotal += $transitItem['dist'];
 				} else {
+					$htmlText = "Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
+						" (".$dbRoute[$transitItem['id']]['route_name'].") sepanjang".$transitItem['dist']." km.";
+					
 					$transitFee = 1500 + (ceil($transitItem['dist']) * 500);
 					if ($transitFee > 4500) $transitFee = 4500;
 	
@@ -488,9 +577,27 @@ class AlgorithmControl {
 					" km. (Rp. ".$transitFee.").\n";
 				}
 				$feeTotal += $transitFee;
+				$distTotal += floatval($transitItem['dist']);
+				
+				$stepsData[] = [
+					'html_instruction' => $htmlText,
+					'icon' => $stepIcon,
+					'start_location' => 0,
+					'end_location' => 0,
+					'polyline' => 0,
+					'distance' => floatval($transitItem['dist']),
+					'cost' => intval($transitFee)
+				];
 			}
 			$publicRouteOut .= "Biaya: Rp. ".$feeTotal."\n\n";
 			$altCounter++;
+			
+			$routeWaysData[] = [
+				'est_length' => $distTotal,
+				'walk_length' => $walkDistTotal,
+				'est_cost' => $feeTotal,
+				'steps' => $stepsData
+			];
 		}
 	
 		$timeEnd = microtime(true);
@@ -505,6 +612,7 @@ class AlgorithmControl {
 		$verboseData .= "</pre>";
 	
 		$responseData = array(
+						'routeways' => $routeWaysData,
 						'sequence' => $shortestPathSeq,
 						'benchmark' => $benchmarkResult,
 						'routeinfo' => $publicRouteOut
@@ -522,4 +630,7 @@ class AlgorithmControl {
 		return $jsonResponse;
 	}
 	
+	private function _build_solution() {
+		
+	}
 }

@@ -45,37 +45,43 @@
 	<body>
 
 		<div id="site_mainwrapper" style="min-width:800px;">
-			<div id="site_googlemaps" style="margin-left:0px;"></div>
+			<div id="site_googlemaps" style="margin-left:330px;"></div>
 			
 			<div id="site_floatpanel">
-				<div id="fpanel_home" style="width: 300px;">
+				<div style="width: 300px;">
 					<h2>Angkot Semarang</h2>
 					<hr />
+					<div class="site_defaultpanel">
 					<form class="horizontal-form" action="#submit" id="site_mainform" onsubmit="return mainform_submit();">
-						<div class="form-group">
-							<label for="txt_node_start">From</label>
-							<div>
-								<span style="color:#999;">Unselected</span> |
-								<a href=""><i class="fa fa-crosshairs"></i> Select location</a> |
-								<a href=""><i class="fa fa-crosshairs"></i> Type place</a>
-								<div id="selector-place">
-									<input type="text" class="form-control input-sm" name="txt_node_start"
-										id="txt_node_start" placeholder="Tempat berangkat." />
-								</div>
+						
+						<fieldset>
+							<legend style="font-size: 16px;margin-bottom:10px;">Starting Point</legend>
+							<div><a href="#" style="color:#999;" id="site_start_geo">Unselected</a></div>
+							<a href="#" onclick="return pick_start_point();"><i class="fa fa-crosshairs"></i> Select location</a>
+							<div class="form-group">
+								<input type="text" class="form-control input-sm" name="txt_node_start"
+									id="txt_node_start" placeholder="Tempat berangkat." />
+							</div>
+						</fieldset>
+						<fieldset>
+							<legend style="font-size: 16px;margin-bottom:10px;">Destination</legend>
+							<div class="form-group">
+								<div><a href="#" style="color:#999;" id="site_dest_geo">Unselected</a></div>
+								<a href="#" onclick="return pick_dest_point();"><i class="fa fa-crosshairs"></i> Select location</a>
+								<input type="text" class="form-control input-sm" name="txt_node_dest"
+									id="txt_node_dest" placeholder="Tempat tujuan." />
 							</div>
 							
-								
-							
-						</div>
-						<div class="form-group">
-							<label for="txt_node_dest">Destination</label>
-							<input type="text" class="form-control input-sm" name="txt_node_dest"
-								id="txt_node_dest" placeholder="Tempat tujuan." />
-						</div>
+						</fieldset>
 						
 						<button type="submit" class="btn btn-primary btn-block" disabled id="btn_beginsearch">
 							<i class="fa fa-search"></i> Search Route</button>
 					</form>
+					</div>
+					<div id="site_panel_placenode" class="fpanel_item" style="display:none;">
+						<p class="message">Klik pada map untuk menaruh di mana node akan ditempatkan.</p>
+						<button onclick="return cancel_picker();" class="btn btn-danger btn-block">Batal</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -87,8 +93,14 @@
 	</div>
 </div>
 
+<script>
+var AJAX_REQ_URL = "<?php echo $baseUrl; ?>";
+var URL_DATA_AJAX = "<?php echo $baseUrl.('/app'); ?>";
+var URL_MODAL = "<?php echo $baseUrl.('/modal/get_modal'); ?>";
+var URL_ALGORITHM_AJAX = "<?php echo $baseUrl.('/algorithm'); ?>";
+</script>
 <script async defer
-	src="https://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLE_APIKEY; ?>&libraries=places&callback=init_map"></script>
+	src="https://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLE_APIKEY; ?>&libraries=places,geometry&callback=init_map"></script>
 <script src="<?php echo $baseUrl.('/assets/js/bootstrap.min.js'); ?>"></script>
 <script src="<?php echo $baseUrl.('/assets/js/toastr.min.js'); ?>"></script>
 <script src="<?php echo $baseUrl.('/assets/js/select2.min.js?v='.APPVER); ?>"></script>

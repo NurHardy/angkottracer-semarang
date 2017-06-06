@@ -64,6 +64,40 @@ class NodeModel {
 		$row = mysqli_fetch_array($result, MYSQLI_ASSOC);
 		return $row;
 	}
+	
+	
+	function get_nodes_by_radius($searchCoord, $radiusDist = 1.0, $countLimit = -1) {
+		$condition = array(); // 1 derajat sekitar 111 km...
+	
+		$lon1 = $searchCoord['lng'] - ($radiusDist / abs(cos(deg2rad($searchCoord['lat'])) * 111.0));
+		$lon2 = $searchCoord['lng'] + ($radiusDist / abs(cos(deg2rad($searchCoord['lat'])) * 111.0));
+		
+		$lat1 = $searchCoord['lat'] - ($radiusDist / 111.0);
+		$lat2 = $searchCoord['lat'] + ($radiusDist / 111.0);
+		
+		$conditionQuery = sprintf('(X(location) BETWEEN %.5f AND %.5f) AND (Y(location) BETWEEN %.5f AND %.5f)',
+				$lon1, $lon2, $lat1, $lat2);
+		
+		$selectQuery = db_select('nodes', $conditionQuery, '*, X(location) AS location_lng, Y(location) AS location_lat');
+		if ($countLimit > 0) {
+			$selectQuery .= sprintf(' LIMIT %d', $countLimit);
+		}
+		$queryResult = mysqli_query($this->_db, $selectQuery);
+	
+		if (!$queryResult) return false;
+		$index = 0;
+		$listRecord = array();
+	
+		while ($row = mysqli_fetch_array($queryResult, MYSQLI_ASSOC)) {
+			$index = $row['id_node'];
+			$listRecord[$index] = $row;
+			$listRecord[$index]['neighbors'] = array();
+			
+			unset($listRecord[$index]['location']);
+		}
+		return $listRecord;
+	}
+	
 	/**
 	 * Simpan record node
 	 * @param array $nodeData Data node, field sesuai database
