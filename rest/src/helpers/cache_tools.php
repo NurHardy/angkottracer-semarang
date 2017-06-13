@@ -8,6 +8,8 @@
  * @return boolean TRUE jika sukses, FALSE jika gagal.
  */
 function cache_build($nodeModel, $edgeModel, $routeModel) {
+	$BRT_DIST_FACTOR = 0.5;
+	
 	$dbNode = $nodeModel->get_nodes(-1);
 	$dbEdge = $edgeModel->get_edges(false, true);
 	$dbRoute = $routeModel->get_routes();
@@ -96,7 +98,7 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 						'id_node_dest' => $nextNode,
 						'routes' => [$routeItem['id_route'] => $routeEdgeItem['direction']]
 				);
-				$dbNode[$lastNewIdNode]['neighbors'][$nextNode] = array(floatval($routeEdgeItem['distance'])*0.9, $newEdgeId);
+				$dbNode[$lastNewIdNode]['neighbors'][$nextNode] = array(floatval($routeEdgeItem['distance']) * $BRT_DIST_FACTOR, $newEdgeId);
 
 				//-- Node start adalah shelter BRT?
 				if ($dbNode[$idNodeFrom]['node_type'] == 1) {

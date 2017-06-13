@@ -37,7 +37,6 @@
   padding: 7px;
   border: 1px solid #999;
   font-family: 'Roboto','sans-serif';
-  line-height: 30px;
   min-height:32px;
 }
 </style>
@@ -52,35 +51,72 @@
 					<h2>Angkot Semarang</h2>
 					<hr />
 					<div class="site_defaultpanel">
-					<form class="horizontal-form" action="#submit" id="site_mainform" onsubmit="return mainform_submit();">
-						
-						<fieldset>
-							<legend style="font-size: 16px;margin-bottom:10px;">Starting Point</legend>
-							<div><a href="#" style="color:#999;" id="site_start_geo">Unselected</a></div>
-							<a href="#" onclick="return pick_start_point();"><i class="fa fa-crosshairs"></i> Select location</a>
-							<div class="form-group">
-								<input type="text" class="form-control input-sm" name="txt_node_start"
-									id="txt_node_start" placeholder="Tempat berangkat." />
-							</div>
-						</fieldset>
-						<fieldset>
-							<legend style="font-size: 16px;margin-bottom:10px;">Destination</legend>
-							<div class="form-group">
-								<div><a href="#" style="color:#999;" id="site_dest_geo">Unselected</a></div>
-								<a href="#" onclick="return pick_dest_point();"><i class="fa fa-crosshairs"></i> Select location</a>
-								<input type="text" class="form-control input-sm" name="txt_node_dest"
-									id="txt_node_dest" placeholder="Tempat tujuan." />
-							</div>
+						<form class="horizontal-form" action="#submit" id="site_mainform" onsubmit="return mainform_submit();">
 							
-						</fieldset>
-						
-						<button type="submit" class="btn btn-primary btn-block" disabled id="btn_beginsearch">
-							<i class="fa fa-search"></i> Search Route</button>
-					</form>
+							<fieldset>
+								<legend style="font-size: 16px;margin-bottom:10px;">Starting Point</legend>
+								<div><a href="#" style="color:#999;" id="site_start_geo">Unselected</a></div>
+								<a href="#" onclick="return pick_start_point();"><i class="fa fa-crosshairs"></i> Select location</a>
+								<div class="form-group">
+									<input type="text" class="form-control input-sm" name="txt_node_start"
+										id="txt_node_start" placeholder="Tempat berangkat." />
+								</div>
+							</fieldset>
+							<fieldset>
+								<legend style="font-size: 16px;margin-bottom:10px;">Destination</legend>
+								<div class="form-group">
+									<div><a href="#" style="color:#999;" id="site_dest_geo">Unselected</a></div>
+									<a href="#" onclick="return pick_dest_point();"><i class="fa fa-crosshairs"></i> Select location</a>
+									<input type="text" class="form-control input-sm" name="txt_node_dest"
+										id="txt_node_dest" placeholder="Tempat tujuan." />
+								</div>
+								
+							</fieldset>
+							
+							<button type="submit" class="btn btn-primary btn-block" disabled id="btn_beginsearch">
+								<i class="fa fa-search"></i> Search Route</button>
+						</form>
 					</div>
 					<div id="site_panel_placenode" class="fpanel_item" style="display:none;">
 						<p class="message">Klik pada map untuk menaruh di mana node akan ditempatkan.</p>
 						<button onclick="return cancel_picker();" class="btn btn-danger btn-block">Batal</button>
+					</div>
+					<div id="site_panel_searchresult" class="fpanel_item" style="display:none;">
+						<a href="#" onclick="return reset_gui();" class="btn btn-link btn-block"><i class="fa fa-remove"></i> Reset</a>
+	<form class="horizontal-form" action="#submit">
+		<select name="combo_routeway_list" class="form-control" id="combo_routeway_list"
+			onchange="searchresult_comboupdated();">
+			
+		</select>
+	</form>
+	<hr />
+					<div id="listgroup_steps" style="height: 300px;overflow-y:scroll;">
+						<div class="list-group">
+							<a href="#" class="list-group-item">
+								<div class="media">
+								  <div class="media-left">
+								  	<!-- <i class="fa fa-bus fa-2x"></i> -->
+								  	<img src="<?php echo _base_url('/assets/images/angkot/semarang-c9.png'); ?>" style="width:64px;"/>
+								  </div>
+								  <div class="media-body">
+								    Test<br />
+								    Mlampah
+								  </div>
+								</div>
+							</a>
+							<a href="#" class="list-group-item">
+								<div class="media">
+								  <div class="media-left">
+								  	<i class="fa fa-male fa-2x"></i>
+								  </div>
+								  <div class="media-body">
+								    Test<br />
+								    Mlampah
+								  </div>
+								</div>
+							</a>
+						</div>
+					</div><!-- End listgroup steps -->
 					</div>
 				</div>
 			</div>
@@ -94,6 +130,7 @@
 </div>
 
 <script>
+var MARKERBASE = "<?php echo $baseUrl.('/assets/images/marker/'); ?>";
 var AJAX_REQ_URL = "<?php echo $baseUrl; ?>";
 var URL_DATA_AJAX = "<?php echo $baseUrl.('/app'); ?>";
 var URL_MODAL = "<?php echo $baseUrl.('/modal/get_modal'); ?>";

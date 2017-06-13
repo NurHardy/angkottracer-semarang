@@ -9,7 +9,7 @@ define('HTTPSTATUS_NOTFOUND', 404);
 define('HTTPSTATUS_INTERNALERROR', 500);
 
 function _base_url($_path) {
-	return "/angkottracer".$_path;
+	return "/angkottracer/rest/public".$_path;
 }
 
 function _complete_url($_path) {

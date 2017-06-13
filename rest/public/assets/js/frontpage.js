@@ -112,6 +112,8 @@ function update_gui() {
 	if (currentState == STATE_PLACENODE) {
 		map.setOptions({ draggableCursor: 'crosshair' });
 		$('#site_panel_placenode').show();
+	} else if (currentState == STATE_ROUTERESULT) {
+		$('#site_panel_searchresult').show();
 	} else { // Default
 		$('#fpanel_home').show();
 		$('.site_defaultpanel').show();
@@ -201,6 +203,19 @@ function panto_start_dest() {
 
 function init_map() {
 	currentState = STATE_DEFAULT;
+	
+	SYS_SINGLEDIR_POLYLINE_ICONS.push({
+        icon: {path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW},
+        offset: '100%',
+        repeat:'50px'
+    });
+	
+	SYS_NODEMARKER_ICON = {
+		url: MARKERBASE + 'dot-red.png',
+		size: new google.maps.Size(9, 9),
+		origin: new google.maps.Point(0, 0),
+		anchor: new google.maps.Point(5, 5)
+	};
 	
 	map = new google.maps.Map(document.getElementById('site_googlemaps'), {
 		streetViewControl: false,
@@ -306,9 +321,136 @@ function clear_dirlines() {
 	}
 }
 
+function clear_array(arrayObject) {
+	var dLength = arrayObject.length;
+	var ctr;
+	for (ctr=dLength-1; ctr >= 0; ctr--) {
+		arrayObject.splice(ctr, 1);
+	}
+}
+
+function clear_array_marker(arrayObject) {
+	var dLength = arrayObject.length;
+	var ctr;
+	for (ctr=dLength-1; ctr >= 0; ctr--) {
+		arrayObject[ctr].setMap(null);
+		arrayObject.splice(ctr, 1);
+	}
+}
+
+function searchresult_comboupdated() {
+	var selectedAltId = $('#combo_routeway_list').val();
+	//alert(selectedAltId);
+	render_searchresult_route(selectedAltId);
+}
+
+var searchResultData = [];
+function clear_searchresult_data() {
+	var dLength = searchResultData.length;
+	var ctr;
+	for (ctr=dLength-1; ctr >= 0; ctr--) {
+		clear_array_marker(searchResultData[ctr].markers);
+		clear_array_marker(searchResultData[ctr].polylines);
+		searchResultData.splice(ctr, 1);
+	}
+}
+
+function render_searchresult_route(idAlt) {
+	$(".listgrp_alt_item").hide();
+	$("#listgrp_alt_"+idAlt).fadeIn(250);
+	
+	//-- Hide all markers
+	var searchResultCount = searchResultData.length;
+	var ctr;
+	for (ctr = 0; ctr < searchResultCount; ctr++) {
+		if (ctr == idAlt) {
+			//-- Show markers and polylines
+			searchResultData[ctr].markers.map(function(curMarker, i){
+				curMarker.setVisible(true);
+			});
+			searchResultData[ctr].polylines.map(function(curPolyline, i){
+				curPolyline.setVisible(true);
+			});
+		} else {
+			//-- Hide markers and polylines
+			searchResultData[ctr].markers.map(function(curMarker, i){
+				curMarker.setVisible(false);
+			});
+			searchResultData[ctr].polylines.map(function(curPolyline, i){
+				curPolyline.setVisible(false);
+			});
+		}
+	}
+}
 function render_searchresult(jsonData) {
+	currentState = STATE_ROUTERESULT;
 	clear_dirlines();
 	
+	$("#combo_routeway_list").html(" ");
+	$("#listgroup_steps").html(" ");
+	var ctr; var ctr2;
+	
+	var routeCount = jsonData.data.routeways.length;
+	
+	clear_searchresult_data();
+	
+	for (ctr = 0; ctr < routeCount; ctr++) {
+		var newIdx = searchResultData.push({
+			markers: [],
+			polylines: [],
+			infowindows: []
+		});
+		
+		var idAlt = (newIdx-1);
+		var stepHtml = "<div class='list-group listgrp_alt_item' id='listgrp_alt_"+idAlt+"' data-idsolution='"+idAlt+"'>";
+		$("#combo_routeway_list").append("<option value='"+idAlt+"'>[Cara "+newIdx+"] Rp. "+
+				jsonData.data.routeways[ctr].est_cost+", jalan "+jsonData.data.routeways[ctr].walk_length+" km</option>");
+		
+		var stepCount = jsonData.data.routeways[ctr].steps.length;
+		for (ctr2 = 0; ctr2 < stepCount; ctr2++) {
+			stepHtml += '<a href="#" class="list-group-item"><div class="media"><div class="media-left">' +
+				'<img src="'+jsonData.data.routeways[ctr].steps[ctr2].icon+'" style="width:72px;"/></div>' +
+				'<div class="media-body">'+ jsonData.data.routeways[ctr].steps[ctr2].html_instruction +'</div></div> </a>';
+			
+			//-- Create polyline...
+			var lineColor = null;
+			if (jsonData.data.routeways[ctr].steps[ctr2].type == 'WALK') {
+				lineColor = '#999';
+			} else if (jsonData.data.routeways[ctr].steps[ctr2].type == 'SHUTTLEBUS') {
+				lineColor = '#F00';
+			} else {
+				lineColor = SYS_SINGLEDIR_POLYLINE_COLOR;
+			}
+			var decodedPath = google.maps.geometry.encoding.decodePath(jsonData.data.routeways[ctr].steps[ctr2].polyline);
+			var newPolyline = new google.maps.Polyline({
+				path: decodedPath,
+				geodesic: false,
+				strokeColor: lineColor,
+				strokeWeight: 2,
+				clickable: false,
+				map: map,
+				icons: SYS_SINGLEDIR_POLYLINE_ICONS
+			});
+			searchResultData[idAlt].polylines.push(newPolyline);
+			
+			//-- Teloransi jalan adalah 50 m.
+			if (jsonData.data.routeways[ctr].steps[ctr2].distance >= 0.05) {
+				//-- Start marker...
+				var tmpMarker = new google.maps.Marker({
+					position: jsonData.data.routeways[ctr].steps[ctr2].start_location,
+					map: map,
+					title: jsonData.data.routeways[ctr].steps[ctr2].html_instruction,
+					icon: SYS_NODEMARKER_ICON
+				});
+				searchResultData[idAlt].markers.push(tmpMarker);
+			}
+			
+		}
+		stepHtml += "</div>";
+		
+		$('#listgroup_steps').append(stepHtml);
+	}
+	/*
 	var edgeCount = jsonData.data.sequence.length;
 	var prevPosition = null;
 	for (ctr = 0; ctr < edgeCount; ctr++) {
@@ -327,4 +469,13 @@ function render_searchresult(jsonData) {
 		}
 		prevPosition = jsonData.data.sequence[ctr].position;
 	}
+	*/
+	update_gui();
+	render_searchresult_route(0);
+}
+
+function reset_gui() {
+	change_state(STATE_DEFAULT, null);
+	update_gui();
+	return false;
 }
