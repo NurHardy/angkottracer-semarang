@@ -186,11 +186,23 @@
 		</div>
 		<div id="site_panel_routeeditor_draw" class="site_actionpanel">
 			<form action="#" method="POST" onsubmit="return route_save(this);">
-				<div class="form-group">
-					<label for="txt_route_code">Kode Trayek</label>
-					<input type="text" class="form-control input-sm" name="txt_route_code"
-						id="txt_route_code" placeholder="Kode armada trayek." />
+				<div class="row">
+					<div class="form-group col-xs-5">
+						<label for="txt_route_code">Kode Trayek</label>
+						<input type="text" class="form-control input-sm" name="txt_route_code"
+							id="txt_route_code" placeholder="Kode armada trayek." />
+					</div>
+					<div class="form-group col-xs-7">
+						<label for="txt_route_type">Jenis</label>
+						<select name="txt_route_type" id="txt_route_type"
+								class="form-control" required>
+							<option value="">- Pilih -</option>
+							<option value="1">Angkota</option>
+							<option value="2">BRT</option>
+						</select>
+					</div>
 				</div>
+				
 				<div class="form-group">
 					<label for="txt_route_name">Nama Trayek</label>
 					<input type="text" class="form-control input-sm" name="txt_route_name"

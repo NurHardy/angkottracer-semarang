@@ -96,7 +96,10 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 						'id_edge' => $routeEdgeItem['id_edge'],
 						'id_node_from' => $lastNewIdNode,
 						'id_node_dest' => $nextNode,
-						'routes' => [$routeItem['id_route'] => $routeEdgeItem['direction']]
+						'routes' => [
+							$routeItem['id_route'] =>
+								[$routeEdgeItem['direction'], $routeItem['vehicle_type']]
+						] // Only one route
 				);
 				$dbNode[$lastNewIdNode]['neighbors'][$nextNode] = array(floatval($routeEdgeItem['distance']) * $BRT_DIST_FACTOR, $newEdgeId);
 
@@ -113,7 +116,8 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 		} else { // Angkot biasa
 			foreach ($edgeSeq as $routeEdgeItem) {
 				if (isset($dbEdge[$routeEdgeItem['id_edge']])) {
-					$dbEdge[$routeEdgeItem['id_edge']]['routes'][$routeItem['id_route']] = $routeEdgeItem['direction'];
+					$dbEdge[$routeEdgeItem['id_edge']]['routes'][$routeItem['id_route']] =
+						[$routeEdgeItem['direction'], $routeItem['vehicle_type']];
 				}
 			}
 			

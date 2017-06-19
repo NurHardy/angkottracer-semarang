@@ -60,6 +60,8 @@ class DialogControl {
 		} else if ($postData['name'] == 'route.load') {
 			require_once SRCPATH . '/models/RouteModel.php';
 			$routeModel = new RouteModel($this->container->get('db'));
+			$this->_data['pathRouteIcon'] = $routeModel::$path_routeicon;
+			$this->_data['defRouteIcon'] = $routeModel::$default_routeicon;
 			
 			$this->_data['routeList'] = $routeModel->get_routes();
 			$modalHtml = $this->renderer->render($response, 'modal/load_route.php', $this->_data);

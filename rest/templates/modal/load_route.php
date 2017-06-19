@@ -20,7 +20,8 @@ function postinit_modal() {
 <table class="table table-striped table-condensed table-hover table-bordered" id="table_routeedge">
 	<thead>
 		<tr>
-			<th style="width: 100px;">Kode</th>
+			<th style="width: 50px;">Kode</th>
+			<th style="width: 100px;">Icon</th>
 			<th>Nama Trayek</th>
 			<th style="width: 100px;">Aksi</th>
 		</tr>
@@ -31,6 +32,14 @@ function postinit_modal() {
 ?>
 		<tr>
 			<td><?php echo $itemRoute['route_code']; ?></td>
+			<td><?php
+			$imgPath = $defRouteIcon;
+			if (!empty($itemRoute['vehicle_icon'])) {
+				$imgPath = $itemRoute['vehicle_icon'];
+			}
+			echo '<img src="'._base_url($pathRouteIcon.$imgPath."?v=".APPVER).'" style="height:64px;" />';
+			
+			?></td>
 			<td><?php echo htmlspecialchars($itemRoute['route_name']); ?>
 				<div><small><?php echo null; ?></small></div>
 			</td>

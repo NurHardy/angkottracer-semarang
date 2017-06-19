@@ -12,6 +12,9 @@ class AlgorithmControl {
 	private $_status;
 	private $_timeStart;
 	
+	private $_path_routeicon = '';
+	private $_def_routeicon = '';
+	
 	protected $container;
 	protected $renderer;
 
@@ -204,6 +207,9 @@ class AlgorithmControl {
 		$dbEdge = [];
 		$dbRoute = $routeModel->get_routes();
 		
+		$this->_path_routeicon = $routeModel::$path_routeicon;
+		$this->_def_routeicon = $routeModel::$default_routeicon;
+		
 		//--- Build (if not exist yet), and read cache file...
 		if (!file_exists(SRCPATH."/cache/dbnode.json") ||
 			!file_exists(SRCPATH."/cache/dbedge.json")) {
@@ -325,16 +331,20 @@ class AlgorithmControl {
 				$direction = ($dbEdge[$neighborNodeData[1]]['id_node_dest'] == $neighborNodeId ? 1 : -1);
 				
 				if (!isset($usedRoute[$neighborNodeId])) $usedRoute[$neighborNodeId] = [];
-				foreach ($dbEdge[$neighborNodeData[1]]['routes'] as $idPublicRoute => $publicRouteDir) {
-					if ($publicRouteDir == $direction) {
+				foreach ($dbEdge[$neighborNodeData[1]]['routes'] as $idPublicRoute => $routeItem) {
+					if ($routeItem[0] == $direction) {
 						$usedRoute[$neighborNodeId][] = $idPublicRoute;
 					}
 				}
 				
 				$intersects = array_intersect($usedRoute[$currentNodeId], $usedRoute[$neighborNodeId]);
 				
-				$factor = (empty($intersects) ? 1.2 : 0.9);
-				if (empty($dbEdge[$neighborNodeData[1]]['routes'])) $factor += 0.1;
+				//-- Mengutamakan jalur yang dilalui angkot yang sama
+				//   (meminimalkan ganti angkot)
+				$factor = (empty($intersects) ? 1.0 : 0.75);
+				
+				//-- Meminimalkan mengunjungi jalan yang tidak dilalui angkot...
+				if (empty($dbEdge[$neighborNodeData[1]]['routes'])) $factor += 0.25;
 				
 				if (!isset($gScore[$neighborNodeId])) $gScore[$neighborNodeId] = 9999.0;
 				$tentativegScore = $gScore[$currentNodeId] + ($neighborNodeData[0] * $factor);
@@ -348,13 +358,14 @@ class AlgorithmControl {
 				}
 					
 				$cameFrom[$neighborNodeId] = array($currentNodeId, $neighborNodeData[1]);
+				
 				$gScore[$neighborNodeId] = $tentativegScore;
-				$fScore[$neighborNodeId] = $gScore[$neighborNodeId] + distance(
+				$fScore[$neighborNodeId] = $gScore[$neighborNodeId] + (distance(
 						$dbNode[$neighborNodeId]['location_lat'],
 						$dbNode[$neighborNodeId]['location_lng'],
 						$dbNode[$idNodeGoal]['location_lat'],
 						$dbNode[$idNodeGoal]['location_lng'], 'K'
-						);
+						) * $factor);
 					
 				$verboseData .= "\n";
 				$verboseHtml .= '</td></tr>'.PHP_EOL;
@@ -448,9 +459,9 @@ class AlgorithmControl {
 					if (count($dbEdge[$vCurrentEdge]['routes']) == 0) {
 						$currentSolution[] = 0; // Jalan kaki
 					} else {
-						foreach ($dbEdge[$vCurrentEdge]['routes'] as $idRoute => $itemRouteDir) {
+						foreach ($dbEdge[$vCurrentEdge]['routes'] as $idRoute => $itemRoute) {
 							//-- Ambil trayek yang searah saja ...
-							if (($routeDir == $itemRouteDir) && !in_array($idRoute, $currentSolution)) {
+							if (($routeDir == $itemRoute[0]) && !in_array($idRoute, $currentSolution)) {
 								$currentSolution[] = $idRoute;
 								//$publicRouteOut .= $itemRoute['id_route'].", ";
 							} // End if searah
@@ -638,7 +649,7 @@ class AlgorithmControl {
 			$feeTotal = 0;
 			$stepsData = [];
 			foreach ($itemAlt as $transitItem) {
-				$stepIcon = _base_url('/assets/images/angkot/angkot-gray.png?v='.APPVER);
+				$stepIcon = _base_url($this->_path_routeicon.'/'.$this->_def_routeicon.'?v='.APPVER);
 				$stepType = 'UNKNOWN';
 				$htmlText = '';
 		
@@ -647,18 +658,28 @@ class AlgorithmControl {
 					$stepType = 'WALK';
 					$stepIcon = _base_url('/assets/images/walk-icon-200.png?v='.APPVER);
 					
-					$htmlText = "Jalan kaki sepanjang ".$transitItem['dist']." km.";
-					$publicRouteOut .= "-- Jalan kaki ".$transitItem['dist']." km.\n";
+					$walkLengthLabel = $transitItem['dist'] . " km";
+					if ($transitItem['dist'] < 1.0) {
+						$walkLengthMeter = $transitItem['dist'] * 1000;
+						$walkLengthLabel = $walkLengthMeter . " m";
+					}
+					$htmlText = "Jalan kaki sepanjang ".$walkLengthLabel;
+					$publicRouteOut .= "-- Jalan kaki ".$walkLengthLabel;
 					$walkDistTotal += $transitItem['dist'];
 				} else {
 					if (!empty($dbRoute[$transitItem['id']]['vehicle_icon'])) {
-						$stepIcon = _base_url('/assets/images/angkot/'.$dbRoute[$transitItem['id']]['vehicle_icon']."?v=".APPVER);
+						$stepIcon = _base_url($this->_path_routeicon.'/'.
+								$dbRoute[$transitItem['id']]['vehicle_icon']."?v=".APPVER);
 					}
 					
 					$transitFee = 0;
 					if ($dbRoute[$transitItem['id']]['vehicle_type'] == 2) {
 						$stepType = 'SHUTTLEBUS';
 						$transitFee = 3500; // BRT jauh dekat, Rp. 3500
+						
+						$htmlText = "Naik BRT ".$dbRoute[$transitItem['id']]['route_code'].
+							" (".$dbRoute[$transitItem['id']]['route_name'].") #".$transitItem['id'].
+							" sepanjang ".$transitItem['dist']." km. (Rp. ".$transitFee.")";
 					} else {
 						$stepType = 'CITYTRANSPORT';
 						$transitFee = 3000; // 8 km pertama Rp. 3000
@@ -668,11 +689,11 @@ class AlgorithmControl {
 							$transitFee += ceil((ceil($transitItem['dist'] - 8.0) * 150) / 500) * 500;
 						}
 						if ($transitFee > 6000) $transitFee = 6000; // Paling tinggi 6000
+						
+						$htmlText = "Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
+							" (".$dbRoute[$transitItem['id']]['route_name'].") #".$transitItem['id'].
+							" sepanjang ".$transitItem['dist']." km. (Rp. ".$transitFee.")";
 					}
-					
-		
-					$htmlText = "Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
-					" (".$dbRoute[$transitItem['id']]['route_name'].") #".$transitItem['id']." sepanjang ".$transitItem['dist']." km. (Rp. ".$transitFee.")";
 					
 					$publicRouteOut .= "-- Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
 					" (".$dbRoute[$transitItem['id']]['route_name'].") sepanjang ".$transitItem['dist'].

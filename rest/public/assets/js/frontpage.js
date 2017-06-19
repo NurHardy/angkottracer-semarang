@@ -345,12 +345,20 @@ function searchresult_comboupdated() {
 }
 
 var searchResultData = [];
+var cursorInfoWindow = null;
+
 function clear_searchresult_data() {
 	var dLength = searchResultData.length;
-	var ctr;
+	var ctr; var ctrStep;
 	for (ctr=dLength-1; ctr >= 0; ctr--) {
-		clear_array_marker(searchResultData[ctr].markers);
-		clear_array_marker(searchResultData[ctr].polylines);
+		var stepLength = searchResultData[ctr].length;
+		for (ctrStep = stepLength-1; ctrStep >= 0; ctrStep--) {
+			if (searchResultData[ctr][ctrStep].marker)
+				searchResultData[ctr][ctrStep].marker.setMap(null);
+			searchResultData[ctr][ctrStep].polyline.setMap(null);
+			searchResultData[ctr].splice(ctrStep, 1);
+		}
+		//OLD:clear_array_marker(searchResultData[ctr].polylines);
 		searchResultData.splice(ctr, 1);
 	}
 }
@@ -365,22 +373,20 @@ function render_searchresult_route(idAlt) {
 	for (ctr = 0; ctr < searchResultCount; ctr++) {
 		if (ctr == idAlt) {
 			//-- Show markers and polylines
-			searchResultData[ctr].markers.map(function(curMarker, i){
-				curMarker.setVisible(true);
-			});
-			searchResultData[ctr].polylines.map(function(curPolyline, i){
-				curPolyline.setVisible(true);
+			searchResultData[ctr].map(function(curStep, i){
+				if (curStep.marker) curStep.marker.setVisible(true);
+				curStep.polyline.setVisible(true);
 			});
 		} else {
 			//-- Hide markers and polylines
-			searchResultData[ctr].markers.map(function(curMarker, i){
-				curMarker.setVisible(false);
-			});
-			searchResultData[ctr].polylines.map(function(curPolyline, i){
-				curPolyline.setVisible(false);
+			searchResultData[ctr].map(function(curStep, i){
+				if (curStep.marker) curStep.marker.setVisible(false);
+				curStep.polyline.setVisible(false);
 			});
 		}
 	}
+	
+	select_step(idAlt, 0);
 }
 function render_searchresult(jsonData) {
 	currentState = STATE_ROUTERESULT;
@@ -390,25 +396,41 @@ function render_searchresult(jsonData) {
 	$("#listgroup_steps").html(" ");
 	var ctr; var ctr2;
 	
+	//-- Init variables...
+	if (!cursorInfoWindow) {
+		cursorInfoWindow = new google.maps.InfoWindow({
+	        content: '-',
+	        selectedStepData: {
+	        	idAlt: null,
+	        	idStep: null
+	        }
+		});
+		
+		cursorInfoWindow.addListener('closeclick', function() {
+			select_step(null,null);
+		});
+	}
+	
 	var routeCount = jsonData.data.routeways.length;
 	
 	clear_searchresult_data();
 	
+	//-- Foreach alternatives...
 	for (ctr = 0; ctr < routeCount; ctr++) {
-		var newIdx = searchResultData.push({
-			markers: [],
-			polylines: [],
-			infowindows: []
-		});
+		var stepsData = [];
+		var idAlt = searchResultData.length;
+		var newIdx = idAlt+1;;
 		
-		var idAlt = (newIdx-1);
 		var stepHtml = "<div class='list-group listgrp_alt_item' id='listgrp_alt_"+idAlt+"' data-idsolution='"+idAlt+"'>";
 		$("#combo_routeway_list").append("<option value='"+idAlt+"'>[Cara "+newIdx+"] Rp. "+
 				jsonData.data.routeways[ctr].est_cost+", jalan "+jsonData.data.routeways[ctr].walk_length+" km</option>");
 		
 		var stepCount = jsonData.data.routeways[ctr].steps.length;
 		for (ctr2 = 0; ctr2 < stepCount; ctr2++) {
-			stepHtml += '<a href="#" class="list-group-item"><div class="media"><div class="media-left">' +
+			var newIdStep = ctr2;
+			
+			stepHtml += '<a href="#" class="list-group-item" onclick="return select_step('+ctr+','+ctr2+');">'+
+				'<div class="media"><div class="media-left">' +
 				'<img src="'+jsonData.data.routeways[ctr].steps[ctr2].icon+'" style="width:72px;"/></div>' +
 				'<div class="media-body">'+ jsonData.data.routeways[ctr].steps[ctr2].html_instruction +'</div></div> </a>';
 			
@@ -419,7 +441,7 @@ function render_searchresult(jsonData) {
 			} else if (jsonData.data.routeways[ctr].steps[ctr2].type == 'SHUTTLEBUS') {
 				lineColor = '#F00';
 			} else {
-				lineColor = SYS_SINGLEDIR_POLYLINE_COLOR;
+				lineColor = '#FFA100'; //SYS_SINGLEDIR_POLYLINE_COLOR
 			}
 			var decodedPath = google.maps.geometry.encoding.decodePath(jsonData.data.routeways[ctr].steps[ctr2].polyline);
 			var newPolyline = new google.maps.Polyline({
@@ -429,27 +451,60 @@ function render_searchresult(jsonData) {
 				strokeWeight: 2,
 				clickable: false,
 				map: map,
-				icons: SYS_SINGLEDIR_POLYLINE_ICONS
+				stepData: {
+					idAlt: idAlt,
+					idStep: newIdStep,
+				}
+				//icons: SYS_SINGLEDIR_POLYLINE_ICONS
 			});
-			searchResultData[idAlt].polylines.push(newPolyline);
 			
-			//-- Teloransi jalan adalah 50 m.
+			//-- Toleransi jalan adalah 50 m.
+			var tmpMarker = null;
 			if (jsonData.data.routeways[ctr].steps[ctr2].distance >= 0.05) {
 				//-- Start marker...
-				var tmpMarker = new google.maps.Marker({
+				tmpMarker = new google.maps.Marker({
 					position: jsonData.data.routeways[ctr].steps[ctr2].start_location,
 					map: map,
 					title: jsonData.data.routeways[ctr].steps[ctr2].html_instruction,
-					icon: SYS_NODEMARKER_ICON
+					icon: SYS_NODEMARKER_ICON,
+					stepData: {
+						idAlt: idAlt,
+						idStep: newIdStep,
+					}
 				});
-				searchResultData[idAlt].markers.push(tmpMarker);
+				
+				tmpMarker.addListener('click', function() {
+					select_step(this.stepData.idAlt, this.stepData.idStep);
+				});
+
 			}
 			
+			//-- Insert step data
+			var tmppopupContent = '<img src="'+jsonData.data.routeways[ctr].steps[ctr2].icon+'" '+
+	          'style="width:72px;position:absolute;top:0px;left:0px;"/> '+
+	          '<div style="width:200px;margin-left:80px;min-height:54px;"><span>'+
+	          jsonData.data.routeways[ctr].steps[ctr2].html_instruction+'</span></div><hr />';
+			
+			if (ctr2 > 0) {
+				tmppopupContent +=  '<a href="#" onclick="return select_step('+ctr+','+(ctr2-1)+');">'+
+					'<i class="fa fa-chevron-left"></i> Sebelum</a> ';
+			}
+			if (ctr2 < stepCount) {
+				tmppopupContent += '<div class="pull-right"><a href="#" onclick="return select_step('+ctr+','+(ctr2+1)+');">'+
+					'Lanjut <i class="fa fa-chevron-right"></i></a></div>';
+			}
+			stepsData.push({
+				popupContent: tmppopupContent,
+		        marker: tmpMarker,
+		        polyline: newPolyline
+			});
 		}
 		stepHtml += "</div>";
 		
 		$('#listgroup_steps').append(stepHtml);
-	}
+		
+		searchResultData.push(stepsData);
+	} // End foreach alternatives
 	/*
 	var edgeCount = jsonData.data.sequence.length;
 	var prevPosition = null;
@@ -471,11 +526,65 @@ function render_searchresult(jsonData) {
 	}
 	*/
 	update_gui();
-	render_searchresult_route(0);
+	if (searchResultData.length > 0) {
+		// Show first alternative (best one)
+		render_searchresult_route(0);		
+	}
+}
+function select_step(idAlt, idStep, panToPolyline) {
+	//-- Deselect previous selected step
+	if (cursorInfoWindow.selectedStepData.idAlt != null) {
+		var oldidAlt = cursorInfoWindow.selectedStepData.idAlt;
+		var oldidStep = cursorInfoWindow.selectedStepData.idStep;
+		if (searchResultData[oldidAlt][oldidStep].polyline) {
+			searchResultData[oldidAlt][oldidStep].polyline.setOptions({
+				strokeWeight: 2
+			});
+		}
+	}
+	
+	// Select something...
+	if ((idAlt !== null) && (idStep !== null)) {
+		//-- Select step
+		var selectedMarker = searchResultData[idAlt][idStep].marker;
+		if (selectedMarker) {
+			cursorInfoWindow.open(map, selectedMarker);
+			cursorInfoWindow.setContent(searchResultData[idAlt][idStep].popupContent);
+			cursorInfoWindow.selectedStepData.idAlt = idAlt;
+			cursorInfoWindow.selectedStepData.idStep = idStep;
+			
+			if (!panToPolyline) map.panTo(selectedMarker.getPosition());
+		}
+		searchResultData[idAlt][idStep].polyline.setOptions({
+			strokeWeight: 3
+		});
+		
+		//-- Pan viewport
+		if (panToPolyline) panto_polyline(searchResultData[idAlt][idStep].polyline);
+	} else {
+		cursorInfoWindow.setContent("-");
+		cursorInfoWindow.selectedStepData.idAlt = null;
+		cursorInfoWindow.selectedStepData.idStep = null;
+	}
+	
+	return false;
 }
 
 function reset_gui() {
 	change_state(STATE_DEFAULT, null);
 	update_gui();
+	return false;
+}
+
+function panto_polyline(polyline) {
+	var pathObj = polyline.getPath();
+	var iLen = pathObj.getLength();
+	
+	//-- Pan viewport
+	var bounds = new google.maps.LatLngBounds();
+	for (var i = 0; i < iLen; i++) {
+	    bounds.extend(pathObj.getAt(i));
+	}
+	map.fitBounds(bounds);
 	return false;
 }

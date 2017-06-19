@@ -13,6 +13,9 @@ class RouteModel {
 	 */
 	private $_db;
 	
+	public static $path_routeicon = "/assets/images/angkot/";
+	public static $default_routeicon = "angkot-gray.png";
+	
 	public function __construct($dbConnection) {
 		$this->_db = $dbConnection;
 	}

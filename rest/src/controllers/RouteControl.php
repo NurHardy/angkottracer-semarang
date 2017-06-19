@@ -84,6 +84,7 @@ class RouteControl {
 							'id_route' => $routeData['id_route'],
 							'route_name' => $routeData['route_name'],
 							'route_code' => $routeData['route_code'],
+							'vehicle_type' => $routeData['vehicle_type'],
 							'node_seq' => $nodeSeq,
 							'edge_seq' => $edgeSeq,
 							'profile' => ''
@@ -142,16 +143,25 @@ class RouteControl {
 		$idRoute = intval($args['id']);
 		$routeName = $postData['txt_route_name'];
 		$routeCode = $postData['txt_route_code'];
+		$routeType = $postData['txt_route_type'];
 	
 		$seqEdge = $postData['seq_edge'];
 		$seqNode = $postData['seq_node'];
 	
+		//-- Validation
 		if (!is_array($seqEdge) || !is_array($seqNode)) {
 			$this->_status = HTTPSTATUS_BADREQUEST;
 			$this->_data = generate_error("Invalid parameter specified.");
 			return $response->withJson($this->_data, $this->_status);
 		}
 	
+		if (!in_array($routeType, [1, 2])) {
+			$this->_status = HTTPSTATUS_BADREQUEST;
+			$this->_data = generate_error("Invalid route type specified.");
+			return $response->withJson($this->_data, $this->_status);
+		}
+		
+		//-- Begin process
 		if (!empty($idRoute)) {
 			//-- Rewrite existing route
 			$routeModel->clear_route_edges($idRoute);
@@ -160,7 +170,7 @@ class RouteControl {
 			$idRoute = $routeModel->save_route(array(
 					'route_name' => _db_to_query($routeName, $mysqli),
 					'route_code' => _db_to_query($routeCode, $mysqli),
-					'vehicle_type' => 1,
+					'vehicle_type' => _db_to_query($routeType, $mysqli),
 					'route_length' => 0.0, // TODO: Masukkan panjang trayek
 					'cost_type' => 1,
 					'status' => 1,
