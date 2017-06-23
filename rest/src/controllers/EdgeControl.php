@@ -274,7 +274,7 @@ class EdgeControl {
 		//-- Panjang busur dihitung dari ujung awal hingga akhir
 		$edgeLength = polyline_length($polyLineData, 'K');
 		
-		//-- Napus vertex pertama dan terakhir karena merupakan node
+		//-- Hapus vertex pertama dan terakhir karena merupakan node
 		unset($polyLineData[$lastIdx]);
 		unset($polyLineData[0]);
 			

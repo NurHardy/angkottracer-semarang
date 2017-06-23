@@ -37,6 +37,8 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 		unset($dbNode[$nodeKey]['location']);
 		$dbNode[$nodeKey]['shuttle_buses'] = ['depart' => [], 'arrive' => []];
 	}
+	
+	$dbShuttleSequence = [];
 
 	$newNodeId = 10000;
 	$newEdgeId = 10000;
@@ -55,6 +57,10 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 		$nextNode = 0;
 		// Shuttle bus...
 		if ($routeItem['vehicle_type'] == 2) {
+			$currentShuttleSeq = [];
+			$currentShuttleLen = 0.0;
+			
+			$startShelter = null;
 			foreach ($edgeSeq as $routeEdgeItem) {
 				if ($routeEdgeItem['direction'] > 0) {
 					$idNodeFrom = $routeEdgeItem['id_node_from'];
@@ -66,17 +72,78 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 
 				if ($lastIdNode == null) {
 					$lastIdNode = $lastNewIdNode = $idNodeFrom;
+					$startShelter = $idNodeFrom;
 				}
-				// Clone edge dan node...
-				$currentIdEdge = $routeEdgeItem['id_edge'];
+				
+				// Buat busur shuttle yang menghubungkan antar dua shelter BRT...
+				$currentIdEdge = [ $routeEdgeItem['id_edge'], intval($routeEdgeItem['direction']) ];
+				
+				//-- Rekam rute...
+				$currentShuttleSeq[] = $currentIdEdge;
+				$currentShuttleLen += floatval($routeEdgeItem['distance']);
 
 				//-- Node tujuan adalah Shelter BRT?
 				if ($dbNode[$idNodeDest]['node_type'] == 1) {
 					$nextNode = $dbNode[$idNodeDest]['id_node'];
 					$dbNode[$idNodeDest]['shuttle_buses']['arrive'][] = $routeItem['id_route'];
 
+					//-- Cek, apakah rute antar shelter sudah dibuat?
+					$routeKey = sprintf("%d-%d", $startShelter, $idNodeDest);
+					$tmpIdEdge = null;
+					if (key_exists($routeKey, $dbShuttleSequence)) {
+						// Pastikan rute yang dilewati bus adalah sama...
+						foreach ($dbShuttleSequence[$routeKey] as $idNewEdge => $shuttleSeqArr) {
+							if ($currentShuttleSeq == $shuttleSeqArr) {
+								$tmpIdEdge = $idNewEdge;
+								break;
+							}
+						}
+						
+						// Jika ternyata tidak ada yang sama...
+						if ($tmpIdEdge == null) {
+							// Copy edge sequence...
+							$dbShuttleSequence[$routeKey][$newEdgeId] = [];
+							foreach ($currentShuttleSeq as $idEdge) $dbShuttleSequence[$routeKey][$newEdgeId][] = $idEdge;
+						}
+					} else {
+						// Buat setting baru...
+						$dbShuttleSequence[$routeKey] = [ $newEdgeId => $currentShuttleSeq ];
+					}
+					
+					//-- Rute shuttle belum dibuat, maka buat edge baru...
+					if ($tmpIdEdge == null) {
+						//-- Buat edge baru berdasar jalan yang dilewati sejak shelter terakhir...
+						$tmpSeq = [];
+						foreach ($currentShuttleSeq as $idEdge) $tmpSeq[] = $idEdge;
+						
+						$dbEdge[$newEdgeId] = array(
+								'id_edge' => $tmpSeq,
+								'id_node_from' => $startShelter,
+								'id_node_dest' => $idNodeDest,
+								'routes' => [
+									$routeItem['id_route'] => [1, $routeItem['vehicle_type']]
+								] // Only one route
+						);
+						
+						//-- Shelter berangkat
+						$dbNode[$startShelter]['shuttle_buses']['depart'][] = $routeItem['id_route'];
+						$dbNode[$startShelter]['neighbors'][$idNodeDest] =
+							[$currentShuttleLen * $BRT_DIST_FACTOR, $newEdgeId];
+						
+						$newEdgeId++;
+						
+						//-- Now, start shelter is the old destination shelter
+						$startShelter = $idNodeDest;
+						$currentShuttleSeq = [];
+						$currentShuttleLen = 0.0;
+					} else {
+						// Tambahkan informasi trayek ke dalam rute shuttle
+						$dbEdge[$tmpIdEdge]['routes'][$routeItem['id_route']] = [1, $routeItem['vehicle_type']];
+					}
+					
 				} else {
 					//-- Clone node
+					/*
 					$newNodeId++;
 					$dbNode[$newNodeId] = array(
 							'id_node' => $dbNode[$idNodeDest]['id_node'],
@@ -86,26 +153,9 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 							'node_type' => $dbNode[$idNodeDest]['node_type'],
 							'date_created' => $currentDate,
 							'neighbors' => []
-					);
+					);*/
 
 					$nextNode = $newNodeId;
-				}
-
-				$newEdgeId++;
-				$dbEdge[$newEdgeId] = array(
-						'id_edge' => $routeEdgeItem['id_edge'],
-						'id_node_from' => $lastNewIdNode,
-						'id_node_dest' => $nextNode,
-						'routes' => [
-							$routeItem['id_route'] =>
-								[$routeEdgeItem['direction'], $routeItem['vehicle_type']]
-						] // Only one route
-				);
-				$dbNode[$lastNewIdNode]['neighbors'][$nextNode] = array(floatval($routeEdgeItem['distance']) * $BRT_DIST_FACTOR, $newEdgeId);
-
-				//-- Node start adalah shelter BRT?
-				if ($dbNode[$idNodeFrom]['node_type'] == 1) {
-					$dbNode[$idNodeFrom]['shuttle_buses']['depart'][] = $routeItem['id_route'];
 				}
 
 				//-- Update last node variable
@@ -131,6 +181,9 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 	file_put_contents(SRCPATH."/cache/dbedge.json", $dbEdgeStringify);
 	$dbNodeStringify = json_encode($dbNode, true);
 	file_put_contents(SRCPATH."/cache/dbnode.json", $dbNodeStringify);
+	
+	$dbShuttleStringify = json_encode($dbShuttleSequence, true);
+	file_put_contents(SRCPATH."/cache/dbshuttle.json", $dbShuttleStringify);
 
 	return true;
 }

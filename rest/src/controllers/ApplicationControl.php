@@ -45,6 +45,7 @@ class ApplicationControl {
 		
 		$nodeCache = [];
 		$edgeList = $edgeModel->get_edges(true);
+		/*
 		foreach ($edgeList as $edgeItem) {
 			$itemTimeStart = microtime(true);
 			
@@ -91,7 +92,7 @@ class ApplicationControl {
 			}
 			
 		} // End foreach
-		
+		*/
 		$routeModel = new RouteModel($mysqli);
 		cache_build($nodeModel, $edgeModel, $routeModel);
 		$timeEnd = microtime(true);

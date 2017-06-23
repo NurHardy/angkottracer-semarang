@@ -295,7 +295,7 @@ function mainform_submit() {
 		return false;
 	}
 	
-	_ajax_send({
+	var requestParam = {
 		start:{
 			lat: fromMarker.getPosition().lat(),
 			lng: fromMarker.getPosition().lng()
@@ -304,7 +304,19 @@ function mainform_submit() {
 			lat: destMarker.getPosition().lat(),
 			lng: destMarker.getPosition().lng()
 		}
-	}, function(jsonData){
+	};
+	
+	var optAvoid = "";
+	if (!$('#chk_angkot').is(':checked'))	optAvoid += "angkot,";
+	if (!$('#chk_brt').is(':checked'))		optAvoid += "brt,";
+	
+	if (optAvoid.length > 0) {
+		// Trim karakter koma terakhir...
+		optAvoid = optAvoid.substr(0, optAvoid.length-1);
+		requestParam.avoid = optAvoid;		
+	}
+	
+	_ajax_send(requestParam, function(jsonData){
 		console.log(jsonData);
 		render_searchresult(jsonData);
 	}, "Please wait...", URL_ALGORITHM_AJAX + '/debug', 'GET');
