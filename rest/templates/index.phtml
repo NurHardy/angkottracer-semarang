@@ -5,6 +5,7 @@
  * Main public application interface
  */
 	if (!defined('GOOGLE_APIKEY')) return;
+	if (!isset($currentSessionData)) $currentSessionData = null;
 	
 ?>
 <!DOCTYPE html>
@@ -16,7 +17,7 @@
 		<meta name="keywords" content=""/>
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 		<title><?php
-			if (isset($data['pageTitle'])) echo htmlspecialchars($data['pageTitle']);
+			if (isset($pageTitle)) echo htmlspecialchars($pageTitle);
 			else echo "Untitled";
 		?> | AngkotTracer</title>
 		<link rel="icon" href="<?php echo $baseUrl.('/assets/favicon.ico'); ?>" type="image/x-icon" />
@@ -30,7 +31,7 @@
 <style>
 #site_floatpanel {
   position: absolute;
-  top: 10px;
+  top: 42px;
   left: 10px;
   z-index: 5;
   background-color: #fff;
@@ -42,14 +43,20 @@
 </style>
 	</head>
 	<body>
-
-		<div id="site_mainwrapper" style="min-width:800px;">
+<div id="site_navbar" class="blocking_elmt">
+	<strong>Angkot Semarang</strong>
+	<div class="pull-right">
+		<a href="<?php echo $baseUrl.('/page/about'); ?>"><i class="fa fa-question-circle"></i> About</a> |	
+		<a href="<?php echo $baseUrl.('/auth/login?ref=front'); ?>"><i class="fa fa-user"></i> Contribute</a>
+	</div>
+</div>
+		<div id="site_mainwrapper" class="blocking_elmt" style="padding-top:32px;">
 			<div id="site_googlemaps" style="margin-left:330px;"></div>
 			
 			<div id="site_floatpanel">
 				<div style="width: 300px;">
-					<h2>Angkot Semarang</h2>
-					<hr />
+					<!-- <h2>Angkot Semarang</h2> -->
+					<div style="height:64px;background-color:#eee;margin-bottom:10px;"></div>
 					<div class="site_defaultpanel">
 						<form class="horizontal-form" action="#submit" id="site_mainform" onsubmit="return mainform_submit();">
 							
@@ -82,6 +89,10 @@
 	<div class="checkbox">
 		<label><input type="checkbox" checked="checked" name="brt" value="1" id="chk_brt" />
 			Bus Rapid Transit (BRT)</label>
+	</div>
+	<div class="checkbox">
+		<label><input type="checkbox" name="verbose" value="1" id="chk_verbose" />
+			Verbose</label>
 	</div>
 								</div>
 								
@@ -135,6 +146,22 @@
 			</div>
 		</div>
 		
+<div id='site_overlay_modal'>
+	<div class="container">
+		<div class="row">
+			<div class="col-md-6 col-md-offset-3">
+				<div id='site_ov_box_modal'>
+					<div id="site_modal_loader">
+						<img src='<?php echo $baseUrl.('/assets/images/loader.gif'); ?>' alt='Loading...' /> Memuat...
+					</div>
+					<div id="site_modal_content">							
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+		
 <div id='site_overlay_process'>
 	<div id='site_ov_box_process'>
 		<div id='site_ov_msg_process'>Sedang memproses... Mohon tunggu...</div>
@@ -143,6 +170,7 @@
 </div>
 
 <script>
+var SESSIONDATA = <?php echo json_encode($currentSessionData); ?>;
 var MARKERBASE = "<?php echo $baseUrl.('/assets/images/marker/'); ?>";
 var AJAX_REQ_URL = "<?php echo $baseUrl; ?>";
 var URL_DATA_AJAX = "<?php echo $baseUrl.('/app'); ?>";

@@ -6,8 +6,9 @@ $container = $app->getContainer();
 // view renderer
 $container['renderer'] = function ($c) {
     $settings = $c->get('settings')['renderer'];
+    $urlSettings = $c->get('settings')['url'];
     return new Slim\Views\PhpRenderer($settings['template_path'], [
-        'baseUrl' => '/angkottracer/rest/public'
+        'baseUrl' => $urlSettings['base']
     ]);
 };
 

@@ -66,6 +66,15 @@ class DialogControl {
 			$this->_data['routeList'] = $routeModel->get_routes();
 			$modalHtml = $this->renderer->render($response, 'modal/load_route.php', $this->_data);
 			
+		} else if ($postData['name'] == 'user.editormenu') {
+			$currentUserData = $request->getAttribute('userdata');
+			$this->_data['currentSessionData'] = [
+					'activeToken' => $currentUserData['token'],
+					'userId' => $currentUserData['id_user'],
+					'userEmail' => $currentUserData['email'],
+					'userNickName' => $currentUserData['nickname']
+			];
+			$modalHtml = $this->renderer->render($response, 'modal/user_editormenu.php', $this->_data);
 		} else {
 			$app->notFoundHandler($request, $response);
 		}

@@ -1,0 +1,79 @@
+<?php
+/*
+ * views/form_login.php
+ * ---------------------
+ * Halaman form login.
+ */
+
+	if (!isset($submitError)) $submitError = null;
+?>
+<!DOCTYPE html>
+
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content=""/>
+		<meta name="keywords" content=""/>
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<title><?php
+			if (isset($pageTitle)) echo htmlspecialchars($pageTitle);
+			else echo "Untitled";
+		?> | AngkotTracer</title>
+		<link rel="icon" href="<?php echo $baseUrl.('/assets/favicon.ico'); ?>" type="image/x-icon" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/bootstrap.min.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/font-awesome.min.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/toastr.min.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/global.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/select2.min.css'); ?>" type="text/css" media="screen" />
+	</head>
+	<body style="background-color: #eee;">
+<script>
+function init_page() {
+	// Focus
+	if ($("#inputUsername").val() == "") {
+		$("#inputUsername").focus();
+	} else {
+		$("#inputPassword").focus();
+	}
+}
+</script>
+<div class="container">
+
+	<div class="row">
+		<div class="col-md-4 col-md-offset-4">
+		
+		<div style="background-color:#fff; padding:15px; box-shadow: 0 0 3px rgba(0,0,0,0.5);margin-top: 70px;">
+			<div style="height:64px;background-color:#eee;margin-bottom:10px;"></div>
+	<form class="form-signin" action="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>" method="POST">
+		<h2 class="form-signin-heading">Login Editor</h2>
+		
+<?php if (!empty($submitError)) { //----- Ada alert? ---- ?>
+	<div class="alert alert-danger">
+		<i class="fa fa-exclamation-triangle"></i> <?php echo $submitError; ?>
+	</div>
+<?php } //------------ End if alert ------?>
+		<label for="inputUsername" class="sr-only">Email</label> <input
+			type="email" id="inputUsername" class="form-control" name="sys_uname"
+			placeholder="Email" required autofocus value="<?php 
+				if (!empty($uName)) echo htmlspecialchars($uName)?>">
+		<label for="inputPassword" class="sr-only">Password</label> <input
+			type="password" id="inputPassword" class="form-control" name="sys_passw"
+			placeholder="Password" required>
+			
+		<button class="btn btn-primary btn-block" type="submit" style="margin-top:10px;">
+			<i class="fa fa-lock"></i> Sign in</button>
+		<!-- <a href="<?php echo $baseUrl.('/auth/register'); ?>" class="btn btn-block btn-link">Belum punya akun?</a> -->
+		<hr />
+		<a href="<?php echo $baseUrl.('/'); ?>" class="btn btn-block btn-link"><i class="fa fa-home"></i> Home</a>
+		<input type="hidden" name="submit" value="form-login" />
+	</form>
+		
+			</div><!-- end form wrapper -->
+		</div>
+	</div>
+
+</div>
+<!-- /container -->
+
+	</body>
+</html>

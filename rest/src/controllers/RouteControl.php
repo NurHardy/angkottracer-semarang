@@ -84,7 +84,9 @@ class RouteControl {
 							'id_route' => $routeData['id_route'],
 							'route_name' => $routeData['route_name'],
 							'route_code' => $routeData['route_code'],
+							'route_direction' => ($routeData['route_direction'] == 1 ? 'a' : 'b'),
 							'vehicle_type' => $routeData['vehicle_type'],
+							'status' => ($routeData['status'] == 1 ? 'yes' : 'no'),
 							'node_seq' => $nodeSeq,
 							'edge_seq' => $edgeSeq,
 							'profile' => ''
@@ -144,6 +146,8 @@ class RouteControl {
 		$routeName = $postData['txt_route_name'];
 		$routeCode = $postData['txt_route_code'];
 		$routeType = $postData['txt_route_type'];
+		$routeDirection = $postData['txt_route_direction'];
+		$routeStatus = $postData['txt_route_status'];
 	
 		$seqEdge = $postData['seq_edge'];
 		$seqNode = $postData['seq_node'];
@@ -157,23 +161,48 @@ class RouteControl {
 	
 		if (!in_array($routeType, [1, 2])) {
 			$this->_status = HTTPSTATUS_BADREQUEST;
-			$this->_data = generate_error("Invalid route type specified.");
+			$this->_data = generate_error("Invalid route type value specified.");
 			return $response->withJson($this->_data, $this->_status);
+		}
+		
+		if (!in_array($routeDirection, ['a', 'b'])) {
+			$this->_status = HTTPSTATUS_BADREQUEST;
+			$this->_data = generate_error("Invalid route direction value specified.");
+			return $response->withJson($this->_data, $this->_status);
+		} else {
+			$routeDirection = ($routeDirection == 'a' ? 1 : -1);
+		}
+		
+		if (!in_array($routeStatus, ['yes', 'no'])) {
+			$this->_status = HTTPSTATUS_BADREQUEST;
+			$this->_data = generate_error("Invalid route status value specified.");
+			return $response->withJson($this->_data, $this->_status);
+		} else {
+			$routeStatus = ($routeStatus == 'yes' ? 1 : 0);
 		}
 		
 		//-- Begin process
 		if (!empty($idRoute)) {
 			//-- Rewrite existing route
 			$routeModel->clear_route_edges($idRoute);
+			
+			$routeModel->save_route(array(
+					'route_name' => _db_to_query($routeName, $mysqli),
+					'route_code' => _db_to_query($routeCode, $mysqli),
+					'route_direction' => _db_to_query($routeDirection, $mysqli),
+					'vehicle_type' => _db_to_query($routeType, $mysqli),
+					'status' => $routeStatus
+			), $idRoute);
 		} else {
 			//-- Create new route
 			$idRoute = $routeModel->save_route(array(
 					'route_name' => _db_to_query($routeName, $mysqli),
 					'route_code' => _db_to_query($routeCode, $mysqli),
+					'route_direction' => _db_to_query($routeDirection, $mysqli),
 					'vehicle_type' => _db_to_query($routeType, $mysqli),
-					'route_length' => 0.0, // TODO: Masukkan panjang trayek
-					'cost_type' => 1,
-					'status' => 1,
+					//'route_length' => 0.0, // TODO: Masukkan panjang trayek
+					//'cost_type' => 1,
+					'status' => $routeStatus,
 					'date_created' => _db_to_query(date('Y-m-d H:i:s'), $mysqli)
 			));
 	

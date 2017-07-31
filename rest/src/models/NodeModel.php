@@ -24,7 +24,8 @@ class NodeModel {
 	function get_node_types() {
 		return array(
 				0 => 'Default',
-				1 => 'Shelter BRT'
+				1 => 'Shelter BRT',
+				2 => 'Shelter BRT (Transit)'
 			);
 	}
 	/**

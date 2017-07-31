@@ -172,4 +172,9 @@ class ApplicationControl {
 		
 		return $response->withJson($this->_data, $this->_status);
 	}
+	
+	public function hello($request, $response, $args) {
+		require_once SRCPATH.'/helpers/geo_tools.php';
+		echo "Jarak: ".distance(-6.990402, 110.422958, -6.984323, 110.409318, 'K');
+	}
 }

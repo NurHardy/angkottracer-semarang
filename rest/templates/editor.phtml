@@ -5,7 +5,10 @@
  * Main application interface
  */
 	if (!defined('GOOGLE_APIKEY')) return;
+	if (!isset($currentSessionData)) $currentSessionData = null;
 	
+	$currentUserNickName = (!isset($currentSessionData['userNickName']) ?
+			'Anonymous' : $currentSessionData['userNickName']);
 ?>
 <!DOCTYPE html>
 
@@ -16,19 +19,47 @@
 		<meta name="keywords" content=""/>
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 		<title><?php
-			if (isset($data['pageTitle'])) echo htmlspecialchars($data['pageTitle']);
+			if (isset($pageTitle)) echo htmlspecialchars($pageTitle);
 			else echo "Untitled";
 		?> | AngkotTracer</title>
 		<link rel="icon" href="<?php echo $baseUrl.('/assets/favicon.ico'); ?>" type="image/x-icon" />
 		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/bootstrap.min.css'); ?>" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/font-awesome.min.css'); ?>" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/toastr.min.css'); ?>" type="text/css" media="screen" />
-		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/global.css'); ?>" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/global.css?ver='.APPVER); ?>" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php echo $baseUrl.('/assets/css/select2.min.css'); ?>" type="text/css" media="screen" />
-		
-		<script src="<?php echo $baseUrl.('/assets/js/jquery.min.js'); ?>"></script>
-		
 <style>
+#site_floatpanel {
+  position: absolute;
+  top: 42px;
+  right: 10px;
+  z-index: 5;
+  background-color: #fff;
+  padding: 7px;
+  border: 1px solid #999;
+  font-family: 'Roboto','sans-serif';
+  line-height: 30px;
+  min-height:32px;
+}
+
+#site_floatpanel_extension {
+  position: absolute;
+  top: 42px;
+  right: 180px;
+  z-index: 5;
+  background-color: #fff;
+  padding: 7px;
+  border: 1px solid #999;
+  font-family: 'Roboto','sans-serif';
+  line-height: 30px;
+  min-height:32px;
+}
+
+#site_floatpanel .fpanel_item {display:none;}
+
+.searchresult_step {display:none;}
+
+/* ----------- CONTEXT MENU -------------- */
 .context-menu {
 	width: 200px;
 	position: absolute;
@@ -81,52 +112,45 @@
 #ctxmenu-0-delete, #ctxmenu-0-delete:hover {
 	color: #a94442;
 }
-#site_floatpanel {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 5;
-  background-color: #fff;
-  padding: 7px;
-  border: 1px solid #999;
-  font-family: 'Roboto','sans-serif';
-  line-height: 30px;
-  min-height:32px;
-}
 
-#site_floatpanel_extension {
-  position: absolute;
-  top: 10px;
-  right: 180px;
-  z-index: 5;
-  background-color: #fff;
-  padding: 7px;
-  border: 1px solid #999;
-  font-family: 'Roboto','sans-serif';
-  line-height: 30px;
-  min-height:32px;
-}
-
-#site_floatpanel .fpanel_item {display:none;}
-
-.searchresult_step {display:none;}
 </style>
+		<script src="<?php echo $baseUrl.('/assets/js/jquery.min.js'); ?>"></script>
+		
 	</head>
 	<body>
-
-<div id="site_mainwrapper">
+<?php if ($currentSessionData !== null) { //------- Show entire body if user has been logged in -------- ?>
+<div id="site_navbar" class="blocking_elmt">
+	<strong>Angkot Semarang</strong> Route Editor <?php echo APPVER; ?>
+	<div class="pull-right">
+		<i class="fa fa-user"></i> Logged in As <strong><a href="#showmenu" onclick="return show_usermenu();">
+			<?php echo htmlspecialchars($currentUserNickName); ?> <i class="fa fa-caret-down"></i></a></strong>
+	</div>
+</div>
+<div id="site_mainwrapper" style="padding-top:32px;" class="blocking_elmt">
 	<div id="site_leftpanel">
-		<h2>Angkot Tracer</h2>
+		<!-- <h2>Angkot Tracer</h2> -->
 		<!-- <small>Ayo naik angkutan umum!</small> -->
+		
+		<!-- <div style="height:64px;background-color:#eee;margin-bottom:10px;"></div> -->
+		<form class="horizontal-form" action="#goto" id="site_gotoplace" onsubmit="return editor_gotoplace_submit();">
+			<div class="form-group">
+				<label for="txt_gotoplace">Ke lokasi:</label>
+				<input type="text" class="form-control input-sm" name="txt_gotoplace"
+					id="txt_gotoplace" placeholder="Cari daerah" />
+			</div>
+		</form>
+		<hr>
 		<ul class="nav nav-pills nav-stacked" id="homemenu">
 			<li id="homemenu_grapheditor"><a href="#" onclick="return reset_gui();">
 				<i class="fa fa-share-alt fa-fw"></i> Graph Editor</a></li>
 			<li id="homemenu_routeeditor"><a href="#" onclick="return init_routeeditor();">
 				<i class="fa fa-bus fa-fw"></i> Public Route Editor</a></li>
-			<li id="homemenu_routedebug"><a href="#" onclick="return init_routedebug();">
-				<i class="fa fa-bolt fa-fw"></i> Route Debugger</a></li>
+			<!-- <li id="homemenu_routedebug"><a href="#" onclick="return init_routedebug();">
+				<i class="fa fa-bolt fa-fw"></i> Route Debugger</a></li> -->
 		</ul>
 		<hr>
+	<div id="site_actionpanel_container">
+		<!-- 
 		<div id="site_panel_nodelist" style="display:none;">
 			<form class="horizontal-form" id="site_nodeselector">
 				<label>Pilih node:</label>
@@ -135,9 +159,10 @@
 				</select>
 			</form>
 			<button onclick="return download_json();" class="btn btn-default btn-block">Get Data</button>
-		</div>
+		</div> -->
 		<div id="site_panel_nodeinsert" class="site_defaultpanel">
-			<button onclick="return new_node();" class="btn btn-default btn-block">Insert New Node</button>
+			<button onclick="return new_node();" class="btn btn-default btn-block">
+				<i class="fa fa-plus"></i> Insert New Node</button>
 		</div>
 		<div id="site_panel_placenode" class="site_actionpanel">
 			<p>Klik pada map untuk menaruh di mana node akan ditempatkan.</p>
@@ -177,7 +202,6 @@
 			
 		</div>
 		
-		<hr>
 		<div id="site_panel_routeeditor_home" class="site_actionpanel">
 			<button onclick="return new_route();" class="btn btn-default btn-block">
 				<i class="fa fa-plus"></i> Create New Route...</button>
@@ -186,13 +210,19 @@
 		</div>
 		<div id="site_panel_routeeditor_draw" class="site_actionpanel">
 			<form action="#" method="POST" onsubmit="return route_save(this);">
+				<div class="form-group">
+					<label for="txt_route_name">Nama Trayek</label>
+					<input type="text" class="form-control input-sm" name="txt_route_name"
+						id="txt_route_name" placeholder="Nama Trayek." />
+					<p class="help-block">Nama trayek. Misal: Johar-Tlogosari</p>
+				</div>
 				<div class="row">
-					<div class="form-group col-xs-5">
-						<label for="txt_route_code">Kode Trayek</label>
+					<div class="form-group col-xs-6">
+						<label for="txt_route_code">Kode</label>
 						<input type="text" class="form-control input-sm" name="txt_route_code"
-							id="txt_route_code" placeholder="Kode armada trayek." />
+							id="txt_route_code" placeholder="Kode armada" />
 					</div>
-					<div class="form-group col-xs-7">
+					<div class="form-group col-xs-6">
 						<label for="txt_route_type">Jenis</label>
 						<select name="txt_route_type" id="txt_route_type"
 								class="form-control" required>
@@ -202,12 +232,24 @@
 						</select>
 					</div>
 				</div>
-				
-				<div class="form-group">
-					<label for="txt_route_name">Nama Trayek</label>
-					<input type="text" class="form-control input-sm" name="txt_route_name"
-						id="txt_route_name" placeholder="Nama Trayek." />
-					<p class="help-block">Nama trayek. Misal: Johar-Tlogosari</p>
+				<div class="row">
+					<div class="form-group col-xs-6">
+						<label for="txt_route_direction">Arah Trayek</label>
+						<select name="txt_route_direction" id="txt_route_direction"
+								class="form-control" required>
+							<option value="">- Pilih -</option>
+							<option value="a">Berangkat</option>
+							<option value="b">Pulang</option>
+						</select>
+					</div>
+					<div class="form-group col-xs-6">
+						<label for="txt_route_status">Status</label>
+						<select name="txt_route_status" id="txt_route_status"
+								class="form-control" required>
+							<option value="yes">Aktif</option>
+							<option value="no">Non-aktif</option>
+						</select>
+					</div>
 				</div>
 				
 				<button type="submit" class="btn btn-primary btn-block">
@@ -219,7 +261,7 @@
 		</div>
 		<div id="site_panel_nodeselected" class="site_actionpanel">
 			<button onclick="return new_node();" class="btn btn-default btn-block">
-				<i class="fa fa-plus"></i> Insert New Node and Connect...</button>
+				<i class="fa fa-plus"></i> Connect to New Node...</button>
 			
 			<!-- <h4>List Simpul</h4>
 			<div class="table-responsive">
@@ -240,9 +282,9 @@
 			</div> -->
 			
 			<button class="btn btn-primary btn-block" onclick="new_edge();">
-				<i class="fa fa-crosshairs"></i> Connect to Vertex...</button>
-			<button class="btn btn-default btn-block" onclick="get_direction();">
-				<i class="fa fa-car"></i> Get Direction...</button>
+				<i class="fa fa-crosshairs"></i> Connect to Existing Node...</button>
+			<!-- <button class="btn btn-default btn-block" onclick="get_direction();">
+				<i class="fa fa-car"></i> Get Direction...</button> -->
 			
 			<form action="#" id="site_nodeform" style="display:none;">
 				<label for="site_nodedest_txt">Destination Node</label>
@@ -255,9 +297,11 @@
 			</form>
 		</div><!-- End panel -->
 		
-		<div id="site_panel_routedebug" class="site_defaultpanel">
+		<div id="site_panel_routedebug" class="site_actionpanel">
 			<pre id="routedebug_logpanel" style="max-height: 350px;"></pre>
 		</div>
+		
+	</div><!-- end action panel container -->
 	</div>
 	<div id="site_googlemaps"></div>
 	
@@ -391,7 +435,9 @@
 		</div>
 	</div>
 </div>
+<?php } //--------- End if logged in ------------- ?>
 <script>
+var SESSIONDATA = <?php echo json_encode($currentSessionData); ?>;
 var MARKERBASE = "<?php echo $baseUrl.('/assets/images/marker/'); ?>";
 var scripts = <?php echo json_encode(array(
 	'markerclusterer' => $baseUrl.('/assets/js/components/marker-clusterer.js?v='.APPVER),
@@ -403,7 +449,7 @@ var scripts = <?php echo json_encode(array(
 </script>
 <script src="<?php echo $baseUrl.('/assets/js/home.js?v='.APPVER); ?>"></script>
 <script async defer
-	src="https://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLE_APIKEY; ?>&libraries=geometry&callback=init_map"></script>
+	src="https://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLE_APIKEY; ?>&libraries=places,geometry&callback=init_map"></script>
 	
 <!-- modal dialogs -->
 		<div id='site_overlay_modal'>
@@ -425,7 +471,35 @@ var scripts = <?php echo json_encode(array(
 		<div id='site_overlay_process'>
 			<div id='site_ov_box_process'>
 				<div id='site_ov_msg_process'>Sedang memproses... Mohon tunggu...</div>
-				<img src='<?php echo $baseUrl.('/assets/images/loader.gif'); ?>' alt='Loading...' />
+				<img src='<?php echo $baseUrl.('/assets/images/loader.gif'); ?>' alt='Loading...'
+					id="site_ov_icon_process"/>
+			</div>
+		</div>
+		
+		<div id='site_overlay_message'>
+			<div id='site_ov_box_message'>
+				<div id='site_ov_msg_message'></div>
+			</div>
+		</div>
+		
+		<div style="display:none;">
+			<div id="site_htmlcontent_loginalert">
+				Please login to access this page.
+				<hr />
+				<div style="text-align:center;">
+					<a href="<?php echo $baseUrl.('/auth/login?ref=editor'); ?>" class="btn btn-primary">
+						<i class='fa fa-lock'></i> Login Page
+					</a>
+				</div>
+			</div>
+			<div id="site_htmlcontent_expiredsession">
+				Your session is invalid or has been expired. Please re-login to continue.
+				<hr />
+				<div style="text-align:center;">
+					<a href="<?php echo $baseUrl.('/auth/login?ref=editor'); ?>" class="btn btn-primary">
+						<i class='fa fa-lock'></i> Login Page
+					</a>
+				</div>
 			</div>
 		</div>
 		

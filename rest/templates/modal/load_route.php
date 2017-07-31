@@ -41,6 +41,19 @@ function postinit_modal() {
 			
 			?></td>
 			<td><?php echo htmlspecialchars($itemRoute['route_name']); ?>
+				<div><small><?php
+					if ($itemRoute['status'] == 1) {
+						echo '<span class="label label-success">Aktif</span>';
+					} else {
+						echo '<span class="label label-default">Non-Aktif</span>';
+					}
+				?> | <?php
+					if ($itemRoute['route_direction'] == 1) {
+						echo '<span class="text-success">Berangkat <i class="fa fa-chevron-right"></i></span>';
+					} else {
+						echo '<span class="text-warning"><i class="fa fa-chevron-left"></i> Pulang</span>';
+					}
+				?></small></div>
 				<div><small><?php echo null; ?></small></div>
 			</td>
 			<td><a href="#select" class="btn btn-warning btn-xs" onclick="return load_route(<?php echo $itemRoute['id_route']; ?>);">

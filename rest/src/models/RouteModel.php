@@ -36,10 +36,13 @@ class RouteModel {
 	 * @param int $vehicleType Jenis armada. 1 = mobil, 2 = bus kecil, 3 = bus besar, 4 = BRT
 	 * @return null|array NULL jika error, jika sukses kembali array objek
 	 */
-	function get_routes($vehicleType = -1) {
+	function get_routes($vehicleType = -1, $routeStatus = -1) {
 		$condition = array();
 		if ($vehicleType > 0) $condition['vehicle_type'] = _db_to_query($vehicleType, $this->_db);
+		if ($routeStatus > 0) $condition['status'] = _db_to_query($routeStatus, $this->_db);
+		
 		$selectQuery = db_select('public_routes', $condition);
+		$selectQuery .= ' ORDER BY route_code ASC';
 		$queryResult = mysqli_query($this->_db, $selectQuery);
 	
 		if (!$queryResult) return null;
@@ -128,7 +131,7 @@ class RouteModel {
 					0 => 'route_edges.*',
 					'id_node_from' => 'edges.id_node_from',
 					'id_node_dest' => 'edges.id_node_dest',
-					'id_road' => 'edges.id_road',
+					//'id_road' => 'edges.id_road',
 					'distance' => 'edges.distance',
 					'polyline_data' => 'AsText(edges.polyline)'
 			));

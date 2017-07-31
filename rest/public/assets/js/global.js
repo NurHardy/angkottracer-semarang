@@ -49,6 +49,11 @@
 		$("#site_ov_msg").html(_msg);
 	}
 	
+	//-- Display undissmissable error message...
+	function display_fatal_message(alertContent) {
+		$("#site_ov_msg_message").html(alertContent);
+		$("#site_overlay_message").show();
+	}
 	var _on_modal_cancelled = null;
 	
 	function show_modal(fetchUrl, fetchData, onSubmit, onCancel, preOnSubmit) {
@@ -58,6 +63,11 @@
 			data: fetchData,
 			dataType: 'html',
 			beforeSend: function( xhr ) {
+				if (SESSIONDATA != null) {
+					xhr.setRequestHeader ("Authorization", "Basic " +
+							btoa(SESSIONDATA.userEmail + ":" + SESSIONDATA.activeToken));
+				}
+				
 				$("#site_overlay_modal").fadeIn(250);
 				$('#site_modal_loader').show();
 				$('#site_modal_content').html("-").hide();
@@ -65,6 +75,7 @@
 			success: function(response){
 				$('#site_modal_loader').hide();
 				$('#site_modal_content').html(response);
+				$('#site_ov_box_modal').css('width', '100%');
 				if (typeof(init_modal) === 'function') {
 					init_modal(onSubmit, onCancel, preOnSubmit);
 				}
@@ -81,7 +92,13 @@
 				}
 			},
 			error: function(jqXHR){
-				$('#site_modal_content').html("Fetch error. Please try again.<br /><a href='#' onclick='return hide_modal();'>OK</a>").show();
+				var alertMessage = "";
+				if (jqXHR.status == 401) {
+					alertMessage = "Invalid session. Please relogin.";
+				} else {
+					alertMessage = "Fetch error. Please try again.";
+				}
+				$('#site_modal_content').html(alertMessage+"<br /><a href='#' onclick='return hide_modal();'>OK</a>").show();
 			}
 		}).always(function() {
 			
@@ -98,7 +115,12 @@
 		var alwaysCallback = null;
 		var okCallback = null;
 		var errorCallback = function(response) {
-			alert("Error returned: "+response.message);
+			if ((response.status == 401) && (response.statustag == 'invalid-session')) { // Unauthorized?
+				var alertContent = $('#site_htmlcontent_expiredsession').html();
+				display_fatal_message(alertContent);
+			} else {
+				alert("Error returned: "+response.message);
+			}
 		};
 		
 		if (typeof(_finishcallback)=='function') {
@@ -117,6 +139,11 @@
 			data: _postdata,
 			dataType: 'json',
 			beforeSend: function( xhr ) {
+				if (SESSIONDATA != null) {
+					xhr.setRequestHeader ("Authorization", "Basic " +
+							btoa(SESSIONDATA.userEmail + ":" + SESSIONDATA.activeToken));
+				}
+				
 				is_processing = true;
 				show_overlay(_ov_msg);
 			},
@@ -130,21 +157,23 @@
 				}
 			},
 			error: function(jqXHR){
+				var statusTag = "";
 				var errMessage = "Request failed.";
 				var respBody = [];
 				try {
 			        respBody = JSON.parse(jqXHR.responseText);
 			        if ('message' in respBody) {
+			        	statusTag = respBody.status;
 			        	errMessage = errMessage + " Message: " + respBody.message;
 			        }
 			    } catch (e) {
 			    	//-- Unparseable JSON response
 			    }
-			   
 				
 				if (typeof(errorCallback)=='function') {
 					errorCallback({
 						status: jqXHR.status,
+						statustag: statusTag,
 						message: errMessage,
 						xhr: jqXHR
 					});

@@ -28,8 +28,13 @@ function postinit_modal() {
 	<div><strong>Node #1</strong>: <span><?php echo htmlspecialchars($data['dataNode1']['node_name']); ?></span></div>
 	<div><strong>Node #2</strong>: <span><?php echo htmlspecialchars($data['dataNode2']['node_name']);; ?></span></div>
 	<div class="form-group">
+		<label for="modal_form_add_edge_input1">Nama busur:</label>
+		<input type="text" class="form-control request-focus" id="modal_form_add_edge_input1"
+			placeholder="Nama busur" required name="edge_name" />
+	</div>
+	<div class="form-group">
 		<label for="modal_form_add_edge_direction">Arah busur:</label>
-		<select class="form-control request-focus" id="modal_form_add_edge_direction"
+		<select class="form-control" id="modal_form_add_edge_direction"
 			required name="edge_direction">
 			<option value="0">Bolak-balik</option>
 			<option value="1">Dari node 1 ke node 2</option>

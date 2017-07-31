@@ -236,6 +236,8 @@ function init_map() {
     // so that the autocomplete requests use the current map bounds for the
     // bounds option in the request.
     autocomplete1.bindTo('bounds', map);
+    
+    autocomplete1.setComponentRestrictions({country: 'id'});
 
     autocomplete1.addListener('place_changed', function() {
     	var place = autocomplete1.getPlace();
@@ -259,6 +261,7 @@ function init_map() {
 		set_from_point(place.geometry.location);
     });
 
+    autocomplete2.setComponentRestrictions({country: 'id'});
     autocomplete2.addListener('place_changed', function() {
     	var place = autocomplete2.getPlace();
     	//console.log(place);
@@ -314,6 +317,10 @@ function mainform_submit() {
 		// Trim karakter koma terakhir...
 		optAvoid = optAvoid.substr(0, optAvoid.length-1);
 		requestParam.avoid = optAvoid;		
+	}
+	
+	if ($('#chk_verbose').is(':checked')) {
+		requestParam.verbose = 1;	
 	}
 	
 	_ajax_send(requestParam, function(jsonData){
@@ -427,6 +434,13 @@ function render_searchresult(jsonData) {
 	
 	clear_searchresult_data();
 	
+	//-- Hide combobox if only one routeway found.
+	/*if (routeCount == 1) {
+		$("#combo_routeway_list").hide();
+	} else {
+		$("#combo_routeway_list").show();
+	}*/
+	
 	//-- Foreach alternatives...
 	for (ctr = 0; ctr < routeCount; ctr++) {
 		var stepsData = [];
@@ -510,13 +524,42 @@ function render_searchresult(jsonData) {
 		        marker: tmpMarker,
 		        polyline: newPolyline
 			});
-		}
+		} // End for
+		
 		stepHtml += "</div>";
 		
 		$('#listgroup_steps').append(stepHtml);
 		
 		searchResultData.push(stepsData);
 	} // End foreach alternatives
+	
+	//---- Debugging purpose -----------
+	if (typeof(jsonData.data.verbose) !== 'undefined') {
+		$('#site_modal_loader').hide();
+		$('#site_modal_content').html(
+				'<div style="height: 48px;"><div class="pull-right">'+
+				'<button type="button" class="btn btn-danger modal-closebtn">'+
+				'<i class="fa fa-remove"></i> Cancel</button></div></div>'+
+				jsonData.data.verbose+
+				'<div style="height: 48px;"><div class="pull-right">'+
+				'<button type="button" class="btn btn-danger modal-closebtn">'+
+				'<i class="fa fa-remove"></i> Cancel</button></div></div>');
+		$('#site_ov_box_modal').css('width', '100%');
+		_on_modal_cancelled = function(){
+			hide_modal();
+			if (typeof(onCancel) === 'function') {
+				onCancel();
+			}
+		};
+		$('#site_overlay_modal .modal-closebtn').click(_on_modal_cancelled);
+		$('#site_modal_content').show();
+		if (typeof(postinit_modal) === 'function') {
+			postinit_modal();
+		}
+		$("#site_overlay_modal").fadeIn(250);
+	}
+	//------ End debugging ---------------
+	
 	/*
 	var edgeCount = jsonData.data.sequence.length;
 	var prevPosition = null;
@@ -600,3 +643,7 @@ function panto_polyline(polyline) {
 	map.fitBounds(bounds);
 	return false;
 }
+
+$(document).ready(function(){
+	$('#txt_node_start').focus();
+});

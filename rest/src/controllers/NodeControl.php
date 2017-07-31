@@ -149,9 +149,8 @@ class NodeControl {
 		$nodeDataQuery = array();
 		$nodeDataQuery['node_name'] = _db_to_query($nodeName, $mysqli);
 		$nodeDataQuery['location'] = "GeomFromText('".latlng_point_to_mysql($nodePosLng, $nodePosLat)."')";
-		$nodeDataQuery['id_area'] = 0;
-		$nodeDataQuery['id_creator'] = 0;
-		$nodeDataQuery['creator'] = "'system'";
+		//$nodeDataQuery['id_creator'] = 0;
+		//$nodeDataQuery['creator'] = "'system'";
 		$nodeDataQuery['node_type'] = $nodeType;
 		
 		if ($newId = $nodeModel->save_node($nodeDataQuery, -1)) {
@@ -176,8 +175,8 @@ class NodeControl {
 				$newEdgeData['id_node_from'] = intval($idNodeToConnect);
 				$newEdgeData['id_node_dest'] = $newId;
 				$newEdgeData['traffic_index'] = 1.0;
-				$newEdgeData['id_creator'] = 0;
-				$newEdgeData['creator'] = "'system'";
+				//$newEdgeData['id_creator'] = 0;
+				//$newEdgeData['creator'] = "'system'";
 				$newEdgeData['reversible'] = 1;
 				
 				require_once SRCPATH.'/models/EdgeModel.php';

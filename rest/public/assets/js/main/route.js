@@ -217,7 +217,9 @@ function load_route(idRoute) {
 		
 		$('#txt_route_code').val(response.data.route_code);
 		$('#txt_route_name').val(response.data.route_name);
+		$('#txt_route_direction').val(response.data.route_direction);
 		$('#txt_route_type').val(response.data.vehicle_type);
+		$('#txt_route_status').val(response.data.status);
 		
 		activeRouteId = response.data.id_route;
 		routeeditor_update_(response.data.node_seq, response.data.edge_seq);

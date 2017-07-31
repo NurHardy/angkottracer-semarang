@@ -12,7 +12,7 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 	
 	$dbNode = $nodeModel->get_nodes(-1);
 	$dbEdge = $edgeModel->get_edges(false, true);
-	$dbRoute = $routeModel->get_routes();
+	$dbRoute = $routeModel->get_routes(-1, 1); // Ambil rute aktif saja...
 
 	foreach ($dbEdge as $edgeKey => $edgeItem) {
 		// We do not need the polyline field...
@@ -24,9 +24,16 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 		$nodeFrom = $edgeItem['id_node_from'];
 		$nodeDest = $edgeItem['id_node_dest'];
 
-		$dbNode[$nodeFrom]['neighbors'][$nodeDest] = array(floatval($edgeItem['distance']), intval($edgeItem['id_edge']));
+		$dbNode[$nodeFrom]['neighbors'][$nodeDest] = array(
+				floatval($edgeItem['distance']),
+				intval($edgeItem['id_edge']),
+				floatval($edgeItem['distance']));
+		
 		if ($edgeItem['reversible'] == 1) {
-			$dbNode[$nodeDest]['neighbors'][$nodeFrom] = array(floatval($edgeItem['distance']), intval($edgeItem['id_edge']));
+			$dbNode[$nodeDest]['neighbors'][$nodeFrom] = array(
+					floatval($edgeItem['distance']),
+					intval($edgeItem['id_edge']),
+					floatval($edgeItem['distance']));
 		}
 		
 	}
@@ -46,11 +53,21 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 	//-- Build route edges
 	$idNodeFrom = 0; $idNodeDest = 0;
 	foreach ($dbRoute as $routeKey => $routeItem) {
+		// Append arah trayek di akhir kode trayek...
+		$routDirPostFix = ($routeItem['route_direction'] == 1 ? '-a' : '-b');
+		$routeCode = strtolower($routeItem['route_code']).$routDirPostFix;
+		
 		$edgeSeq = $routeModel->get_route_edges($routeItem['id_route'], true);
 
 		//-- Skip if route has no edge
 		if (empty($edgeSeq)) continue;
 
+		//-- Get finish node...
+		$lastIdx = count($edgeSeq) - 1;
+		$finishIdNode = ($edgeSeq[$lastIdx]['direction'] > 0 ?
+				$edgeSeq[$lastIdx]['id_node_dest'] :
+				$edgeSeq[$lastIdx]['id_node_from']);
+		
 		$lastIdNode = null;
 		$lastNewIdNode = null;
 
@@ -83,7 +100,7 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 				$currentShuttleLen += floatval($routeEdgeItem['distance']);
 
 				//-- Node tujuan adalah Shelter BRT?
-				if ($dbNode[$idNodeDest]['node_type'] == 1) {
+				if (($dbNode[$idNodeDest]['node_type'] == 1) || (($dbNode[$idNodeDest]['node_type'] == 2))) {
 					$nextNode = $dbNode[$idNodeDest]['id_node'];
 					$dbNode[$idNodeDest]['shuttle_buses']['arrive'][] = $routeItem['id_route'];
 
@@ -121,26 +138,33 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 								'id_node_from' => $startShelter,
 								'id_node_dest' => $idNodeDest,
 								'routes' => [
-									$routeItem['id_route'] => [1, $routeItem['vehicle_type']]
+									$routeCode => [1, $routeItem['vehicle_type'], $routeItem['id_route'], $finishIdNode]
 								] // Only one route
 						);
 						
 						//-- Shelter berangkat
 						$dbNode[$startShelter]['shuttle_buses']['depart'][] = $routeItem['id_route'];
 						$dbNode[$startShelter]['neighbors'][$idNodeDest] =
-							[$currentShuttleLen * $BRT_DIST_FACTOR, $newEdgeId];
+							[$currentShuttleLen * $BRT_DIST_FACTOR, $newEdgeId, $currentShuttleLen];
 						
 						$newEdgeId++;
 						
-						//-- Now, start shelter is the old destination shelter
-						$startShelter = $idNodeDest;
-						$currentShuttleSeq = [];
-						$currentShuttleLen = 0.0;
 					} else {
 						// Tambahkan informasi trayek ke dalam rute shuttle
-						$dbEdge[$tmpIdEdge]['routes'][$routeItem['id_route']] = [1, $routeItem['vehicle_type']];
+						$dbEdge[$tmpIdEdge]['routes'][$routeCode] =
+							[1, $routeItem['vehicle_type'], $routeItem['id_route'], $finishIdNode];
+						
+						//-- Shelter berangkat
+						$dbNode[$startShelter]['shuttle_buses']['depart'][] = $routeItem['id_route'];
+						$dbNode[$startShelter]['neighbors'][$idNodeDest] =
+							[$currentShuttleLen * $BRT_DIST_FACTOR, $tmpIdEdge, $currentShuttleLen];
+						
 					}
+					//-- Now, start shelter is the old destination shelter
+					$startShelter = $idNodeDest;
 					
+					$currentShuttleSeq = [];
+					$currentShuttleLen = 0.0;
 				} else {
 					//-- Clone node
 					/*
@@ -166,8 +190,8 @@ function cache_build($nodeModel, $edgeModel, $routeModel) {
 		} else { // Angkot biasa
 			foreach ($edgeSeq as $routeEdgeItem) {
 				if (isset($dbEdge[$routeEdgeItem['id_edge']])) {
-					$dbEdge[$routeEdgeItem['id_edge']]['routes'][$routeItem['id_route']] =
-						[$routeEdgeItem['direction'], $routeItem['vehicle_type']];
+					$dbEdge[$routeEdgeItem['id_edge']]['routes'][$routeCode] =
+						[$routeEdgeItem['direction'], $routeItem['vehicle_type'], $routeItem['id_route'], $finishIdNode];
 				}
 			}
 			

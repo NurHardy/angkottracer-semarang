@@ -6,6 +6,7 @@
  */
 
 	var map;
+	var gotoPlaceAutocomplete;
 	
 	var nodeMarkerMap_ = {}; // Hash memetakan id_node ke index activeMarkers;
 	var neighborNodeCache_ = {}; // Cache, memetakan id_node ke array id_node
@@ -323,6 +324,8 @@
 		var newIcon = null;
 		if (newNodeData.node_type == 1) {
 			newIcon = SYS_NODEMARKER_BUSSHELTER;
+		} else if (newNodeData.node_type == 2) {
+			newIcon = SYS_NODEMARKER_BUSSHELTER_TRANSIT;
 		} else {
 			newIcon = SYS_NODEMARKER_ICON;
 		}
@@ -377,6 +380,8 @@
 				var newIcon = null;
 				if (newNodeData.node_type == 1) {
 					newIcon = SYS_NODEMARKER_BUSSHELTER;
+				} else if (newNodeData.node_type == 2) {
+					newIcon = SYS_NODEMARKER_BUSSHELTER_TRANSIT;
 				} else {
 					newIcon = SYS_NODEMARKER_ICON;
 				}
@@ -524,6 +529,7 @@
 	function hide_fpanel_ext() {
 		$("#site_floatpanel_extension").hide();
 	}
+	
 	function download_json() {
 		_ajax_send({
 			
@@ -547,18 +553,38 @@
 			// Add a marker clusterer to manage the markers.
 	        markerCluster = new MarkerClusterer(map, activeMarkers,{
 	        		imagePath: MARKERBASE + 'm',
-	        		maxZoom: 16
+	        		maxZoom: 3 //16
 	        });
 		}, "Initializing...", URL_DATA_AJAX + '/init', 'GET');
 		return false;
 	}
 	
+	function show_usermenu() {
+		show_modal(URL_MODAL, {
+			'name': 'user.editormenu'
+		}, function(response){
+			// Onsubmit
+		}, function(){
+			// Oncancel
+		});
+		return false;
+	}
+	
+	function refresh_cache() {
+		_ajax_send({
+			
+		}, function(jsonData){
+			alert(jsonData.message + " | Time: "+jsonData.exec_time);
+			hide_modal();
+		}, "Flushing cache...", URL_DATA_AJAX + '/cron', 'GET');
+		return false;
+	}
 	function init_map() {
 		//-- Set constants
 		SYS_SINGLEDIR_POLYLINE_ICONS.push({
 	        icon: {path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW},
 	        offset: '100%',
-	        repeat:'50px'
+	        repeat: '50px'
 	    });
 		
 		SYS_NODEMARKER_ICON = {
@@ -573,6 +599,19 @@
 				origin: new google.maps.Point(0, 0),
 				anchor: new google.maps.Point(7, 7)
 		};
+		SYS_NODEMARKER_BUSSHELTER_TRANSIT = {
+				url: MARKERBASE + 'bus-shelter-transit.gif',
+				size: new google.maps.Size(15, 15),
+				origin: new google.maps.Point(0, 0),
+				anchor: new google.maps.Point(7, 7)
+		};
+		
+		//-- Check session data
+		if (SESSIONDATA === null) {
+			var alertContent = $('#site_htmlcontent_loginalert').html();
+			display_fatal_message(alertContent);
+			return false;
+		}
 		
 		//-- Load components
 		loadScripts(scripts, function(){
@@ -610,6 +649,32 @@
 		    	}
 		    }
 		});
+		
+		//-- Google place autocomplete
+		var gotoPlaceElmt = document.getElementById('txt_gotoplace');
+		gotoPlaceAutocomplete = new google.maps.places.Autocomplete(gotoPlaceElmt);
+		placeService = new google.maps.places.PlacesService(map);
+	    
+		gotoPlaceAutocomplete.bindTo('bounds', map);
+		gotoPlaceAutocomplete.setComponentRestrictions({country: 'id'});
+
+		gotoPlaceAutocomplete.addListener('place_changed', function() {
+	    	var place = gotoPlaceAutocomplete.getPlace();
+
+	    	if (!place.geometry) {
+	            alert("Tempat tidak ditemukan: '" + place.name + "'");
+	            return;
+			}
+
+			// If the place has a geometry, then present it on a map.
+			if (place.geometry.viewport) {
+				map.fitBounds(place.geometry.viewport);
+			} else {
+				map.setCenter(place.geometry.location);
+			}
+			
+	    });
+		
 		/*
 		var gadjahmada = [
 			{lat: -6.989012710126586, lng: 110.4227093610417},

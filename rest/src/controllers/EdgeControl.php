@@ -123,7 +123,8 @@ class EdgeControl {
 			return $response->withJson($this->_data, $this->_status);
 		}
 			
-		if (!isset($nodeData['id_node_1']) || !isset($nodeData['id_node_2']) || !isset($postData['edge_direction'])) {
+		if (!isset($nodeData['id_node_1']) || !isset($nodeData['id_node_2']) ||
+				!isset($postData['edge_direction']) || !isset($postData['edge_name'])) {
 			$this->_data = generate_error("Incomplete parameter specified.");
 			return $response->withJson($this->_data, $this->_status);
 		}
@@ -137,7 +138,11 @@ class EdgeControl {
 			return $response->withJson($this->_data, $this->_status);
 		}
 		$edgeDirection = intval($postData['edge_direction']);
-			
+		$edgeName = trim($postData['edge_name']);
+		if ($edgeName == '') {
+			$this->_data = generate_error("Edge name cannot be empty.");
+			return $response->withJson($this->_data, $this->_status);
+		}
 		$nodePos1 = array(
 				'lat' => floatval($dataNode1['location_lat']),
 				'lng' => floatval($dataNode1['location_lng'])
@@ -148,6 +153,7 @@ class EdgeControl {
 		);
 			
 		$newEdgeData = array();
+		$newEdgeData['edge_name'] = _db_to_query($edgeName, $this->container->get('db'));
 		$newEdgeData['distance'] = distance($nodePos1['lat'], $nodePos1['lng'], $nodePos2['lat'], $nodePos2['lng'], 'K');
 		
 		if ($edgeDirection < 0) {
@@ -157,9 +163,9 @@ class EdgeControl {
 			$newEdgeData['id_node_from'] = $dataNode1['id_node'];
 			$newEdgeData['id_node_dest'] = $dataNode2['id_node'];
 		}
-		$newEdgeData['traffic_index'] = 1.0;
-		$newEdgeData['id_creator'] = 0;
-		$newEdgeData['creator'] = "'system'";
+		//$newEdgeData['traffic_index'] = 1.0;
+		//$newEdgeData['id_creator'] = 0;
+		//$newEdgeData['creator'] = "'system'";
 		$newEdgeData['reversible'] = ($edgeDirection == 0 ? 1 : 0);
 		
 		require_once SRCPATH.'/models/EdgeModel.php';
@@ -171,7 +177,7 @@ class EdgeControl {
 					'pos1' => $nodePos1,
 					'pos2' => $nodePos2,
 					'edgedata' => array(
-							'edge_name' => null,
+							'edge_name' => $edgeName,
 							'id_node_from' => $newEdgeData['id_node_from'],
 							'id_node_dest' => $newEdgeData['id_node_dest'],
 							'reversible' => $newEdgeData['reversible']
