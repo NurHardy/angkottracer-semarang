@@ -175,6 +175,39 @@ class ApplicationControl {
 	
 	public function hello($request, $response, $args) {
 		require_once SRCPATH.'/helpers/geo_tools.php';
-		echo "Jarak: ".distance(-6.990402, 110.422958, -6.984323, 110.409318, 'K');
+		$output = "";
+		$data = [
+				[-6.98958,	110.42182],
+				[-6.98893,	110.42050],
+				[-6.98796,	110.41846],
+				[-6.98756,	110.41754],
+				[-6.98746,	110.41710],
+				[-6.98684,	110.41502],
+				[-6.98665,	110.41431],
+				[-6.98646,	110.41369],
+				[-6.98614,	110.41290],
+				[-6.98591,	110.41247],
+				[-6.98549,	110.41157],
+				[-6.98483,	110.41011]
+		];
+		
+		$totalDist = 0.0;
+		foreach ($data as $key => $item) {
+			$line = sprintf(" ==[%f, %f]", $data[$key][0], $data[$key][1]);
+			$output .= $line."\n";
+			if ($key == 0) continue;
+			
+			$dist = distance($data[$key-1][0], $data[$key-1][1], $data[$key][0], $data[$key][1], 'K');
+			$output .= " dist: ".$dist."\n";
+			
+			$totalDist += $dist;
+		}
+		
+		$output .= " ====== TOTAL: ".$totalDist."\n";
+		// Render index view
+		$args['pageTitle'] = "Debug Output";
+		$args['output'] = $output;
+		//"Jarak: ".distance(-6.990402, 110.422958, -6.984323, 110.409318, 'K');;
+		return $this->renderer->render($response, 'debug/basic_output.php', $args);
 	}
 }

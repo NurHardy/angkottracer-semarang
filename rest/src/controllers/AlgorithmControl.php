@@ -236,7 +236,15 @@ class AlgorithmControl {
 	 return total_path
 	 */
 	
-	private function _do_astar_algorithm($idNodeStart, $idNodeGoal, $searchOpts = null, $verbose = false) {
+	/**
+	 * Fungsi pencarian dengan algoritma A*
+	 * @param int $idNodeStart Id node awal
+	 * @param int $idNodeGoal Id node tujuan
+	 * @param array $searchOpts Opsi pencarian: angkot, brt
+	 * @param boolean $verbose TRUE untuk verbose
+	 * @return object Nilai kembalian webservice untuk dioutputkan
+	 */
+	private function _do_astar_algorithm_v2($idNodeStart, $idNodeGoal, $searchOpts = null, $verbose = false) {
 		$timeStart = $this->_timeStart;
 	
 		//require(APP_PATH."/controller/main/data.php");
@@ -431,31 +439,33 @@ class AlgorithmControl {
 				$heuristicDistance = 9999.99;
 				$isUsedRouteEmpty = empty($usedRoute[$currentNodeId]);
 				
-				$shuttleCount = 0;
-				foreach ($dbEdge[$neighborNodeData[1]]['routes'] as $codePublicRoute => $routeItem) {
-					if ($routeItem[0] == $direction) {
-						if (!$useAngkot && ($routeItem[1] == 1)) continue;
-						if (!$useBrt && ($routeItem[1] == 2)) continue;
-						
-						/*$finishDistance = distance(
-							$dbNode[$routeItem[3]]['location_lat'],
-							$dbNode[$routeItem[3]]['location_lng'],
-							$dbNode[$idNodeGoal]['location_lat'],
-							$dbNode[$idNodeGoal]['location_lng'], 'K'
-						);*/
-						
-						if ($routeItem[1] == 2) $shuttleCount++;
-						$availableRoute[$neighborNodeId][] = $codePublicRoute;
-						if ($isUsedRouteEmpty) {
-							if (in_array($codePublicRoute, $availableRoute[$currentNodeId])) {
-								$usedRoute[$neighborNodeId][] = $codePublicRoute;
+				if (!key_exists($neighborNodeId, $openNodes) && !key_exists($$neighborNodeId, $visitedNodes)) {
+					$shuttleCount = 0;
+					foreach ($dbEdge[$neighborNodeData[1]]['routes'] as $codePublicRoute => $routeItem) {
+						if ($routeItem[0] == $direction) {
+							if (!$useAngkot && ($routeItem[1] == 1)) continue;
+							if (!$useBrt && ($routeItem[1] == 2)) continue;
+					
+							/*$finishDistance = distance(
+							 $dbNode[$routeItem[3]]['location_lat'],
+							 $dbNode[$routeItem[3]]['location_lng'],
+							 $dbNode[$idNodeGoal]['location_lat'],
+							 $dbNode[$idNodeGoal]['location_lng'], 'K'
+							 );*/
+					
+							if ($routeItem[1] == 2) $shuttleCount++;
+							$availableRoute[$neighborNodeId][] = $codePublicRoute;
+							if ($isUsedRouteEmpty) {
+								if (in_array($codePublicRoute, $availableRoute[$currentNodeId])) {
+									$usedRoute[$neighborNodeId][] = $codePublicRoute;
+								}
+							} else {
+								if (in_array($codePublicRoute, $usedRoute[$currentNodeId])) {
+									$usedRoute[$neighborNodeId][] = $codePublicRoute;
+								}
 							}
-						} else {
-							if (in_array($codePublicRoute, $usedRoute[$currentNodeId])) {
-								$usedRoute[$neighborNodeId][] = $codePublicRoute;
-							}
+					
 						}
-						
 					}
 				}
 				
@@ -469,10 +479,12 @@ class AlgorithmControl {
 				
 				//-- Bandingkan angkot sekarang dengan angkot node parent...
 				$intersects = [];
-				//if (isset($cameFrom[$currentNodeId][0])) { // Pastikan bukan node start...
+				if ($currentNodeId != $idNodeStart) { // Pastikan bukan node start...
 					$parentNodeId = $currentNodeId; //$cameFrom[$currentNodeId][0];
 					$intersects = array_intersect($availableRoute[$parentNodeId], $availableRoute[$neighborNodeId]);
-				//}
+				} else {
+					$intersects = [1];
+				}
 				
 				$verboseData .= "   - Intersect routes: ( ".count($intersects).") => ";
 				foreach ($intersects as $codePublicRoute) $verboseData .= $codePublicRoute.', ';
@@ -486,9 +498,9 @@ class AlgorithmControl {
 				if (empty($intersects)) {
 					$factor += 1;
 				}
-				if (empty($usedRoute[$neighborNodeId])) {
-					$factor += 1;
-				}
+				//if (empty($usedRoute[$neighborNodeId])) {
+				//	$factor += 1;
+				//}
 				
 				//-- Meminimalkan mengunjungi jalan yang tidak dilalui angkot...
 				if (empty($availableRoute[$neighborNodeId])) {
@@ -500,30 +512,37 @@ class AlgorithmControl {
 				
 				if (!isset($gScore[$neighborNodeId])) $gScore[$neighborNodeId] = 9999.0;
 				$tentativegScore = $gScore[$currentNodeId] + ($neighborNodeData[0]);
+				
+				// Jika ada di set OPEN dan cost ternyata cost kurang dari g(n), maka hiraukan...
+				if ((key_exists($neighborNodeId, $openNodes)) && ($tentativegScore < $gScore[$neighborNodeId])) {
 					
-				if (!key_exists($neighborNodeId, $openNodes)) {
-					$openNodes[$neighborNodeId] = 1;
+					//$verboseHtml .= ' (ignored score: '.$tentativegScore.')';
+					//$verboseData .= "-- ignored score : ".$tentativegScore." > ".$gScore[$neighborNodeId]."\n";
+					$verboseData .= "-- Remove from OPEN : ".$tentativegScore." < ".$gScore[$neighborNodeId]."\n";
+					unset($openNodes[$neighborNodeId]);
+					//continue;
 				}
 				
-				//if ($tentativegScore >= $gScore[$neighborNodeId]) {
-				//	$verboseHtml .= ' (ignored score: '.$tentativegScore.')';
-				//	$verboseData .= "-- ignored score : ".$tentativegScore." > ".$gScore[$neighborNodeId]."\n";
-				//	continue;
-				//}
+				if (!key_exists($neighborNodeId, $openNodes) && !key_exists($$neighborNodeId, $visitedNodes)) {
+					$openNodes[$neighborNodeId] = 1;
+						
+					$cameFrom[$neighborNodeId] = array($currentNodeId, $neighborNodeData[1]);
 					
-				$cameFrom[$neighborNodeId] = array($currentNodeId, $neighborNodeData[1]);
+					$hScore = distance(
+							$dbNode[$neighborNodeId]['location_lat'],
+							$dbNode[$neighborNodeId]['location_lng'],
+							$dbNode[$idNodeGoal]['location_lat'],
+							$dbNode[$idNodeGoal]['location_lng'], 'K'
+							);
+					$gScore[$neighborNodeId] = $gScore[$currentNodeId] + ($neighborNodeData[0]);
+					$fScore[$neighborNodeId] = $gScore[$currentNodeId] + ($gScore[$neighborNodeId] * $factor * $factor) + ($hScore * $factor);
+						
+					$verboseData .= "  Final hScore : ".$hScore."\n";
+					$verboseData .= "  Final gScore : ".$gScore[$neighborNodeId]."\n";
+					$verboseData .= "  Final fScore : ".$fScore[$neighborNodeId]." | factor: ".$factor."\n";
+					$verboseData .= "\n";
+				}
 				
-				$gScore[$neighborNodeId] = $gScore[$currentNodeId] + ($neighborNodeData[0]);
-				$fScore[$neighborNodeId] = $gScore[$currentNodeId] + ($gScore[$neighborNodeId] * $factor * $factor) + (distance(
-						$dbNode[$neighborNodeId]['location_lat'],
-						$dbNode[$neighborNodeId]['location_lng'],
-						$dbNode[$idNodeGoal]['location_lat'],
-						$dbNode[$idNodeGoal]['location_lng'], 'K'
-						) * $factor);
-					
-				$verboseData .= "  Final gScore : ".$gScore[$neighborNodeId]."\n";
-				$verboseData .= "  Final fScore : ".$fScore[$neighborNodeId]." | factor: ".$factor."\n";
-				$verboseData .= "\n";
 				$verboseHtml .= '</td></tr>'.PHP_EOL;
 			} // End foreach neighbor
 			$verboseHtml .= '</tbody></table>'.PHP_EOL;
@@ -562,445 +581,699 @@ class AlgorithmControl {
 		return $jsonResponse;
 	}
 	
-	private function _build_solution($finalRoute, $searchOpts, $dbNode, $dbEdge, $dbRoute, $edgeModel, &$shortestPathSeq, &$verboseData) {
+	/**
+	 * Fungsi pencarian dengan algoritma A*
+	 * @param int $idNodeStart Id node awal
+	 * @param int $idNodeGoal Id node tujuan
+	 * @param array $searchOpts Opsi pencarian: angkot, brt
+	 * @param boolean $verbose TRUE untuk verbose
+	 * @return object Nilai kembalian webservice untuk dioutputkan
+	 */
+	private function _do_astar_algorithm($idNodeStart, $idNodeGoal, $searchOpts = null, $verbose = false) {
+		$timeStart = $this->_timeStart;
+	
+		$currentDate = date("Y-m-d H:i:s");
+	
 		//--- Default values...
 		$useAngkot = $useBrt = true;
-		
+	
 		if (isset($searchOpts['angkot']))	$useAngkot = $searchOpts['angkot'];
 		if (isset($searchOpts['brt']))		$useBrt = $searchOpts['brt'];
-		
-		$nodeCount = count($finalRoute);
-		$counter = 1;
-		$verboseData .= "------------------ Search finished -----\n";
-		$verboseData .= " Route result:\n";
+	
+		$shortestPathSeq = array();
+	
+		//--- Ambil seluruh data dari cache...
+		require_once(SRCPATH."/models/RouteModel.php");
+		require_once(SRCPATH."/models/NodeModel.php");
+		require_once(SRCPATH."/models/EdgeModel.php");
+		require_once(SRCPATH."/helpers/geo_tools.php");
+		require_once(SRCPATH."/helpers/gmap_tools.php");
+		require_once(SRCPATH."/helpers/cache_tools.php");
+	
+		$nodeModel = new NodeModel($this->container->get('db'));
+		$edgeModel = new EdgeModel($this->container->get('db'));
+		$routeModel = new RouteModel($this->container->get('db'));
+	
+		$dbNode = [];
+		$dbEdge = [];
+		$dbRoute = $routeModel->get_routes();
+	
+		$this->_path_routeicon = $routeModel::$path_routeicon;
+		$this->_def_routeicon = $routeModel::$default_routeicon;
+	
+		//--- Build (if not exist yet), and read cache file...
+		if (!file_exists(SRCPATH."/cache/dbnode.json") ||
+				!file_exists(SRCPATH."/cache/dbedge.json")) {
+					cache_build($nodeModel, $edgeModel, $routeModel);
+		}
+
+		$dbNodeJson = file_get_contents(SRCPATH."/cache/dbnode.json");
+		if (!$dbNodeJson) {
+			return generate_error("Server cache data error. Please contact administrator.");
+		}
+
+		$dbNode = json_decode($dbNodeJson, true);
 			
-		//$publicRouteOut = "== ROUTE INFO ==\n";
-		$routeDir = 0;
+		$dbEdgeJson = file_get_contents(SRCPATH."/cache/dbedge.json");
+		if (!$dbEdgeJson) {
+			return generate_error("Server cache data error. Please contact administrator.");
+		}
+
+		$dbEdge = json_decode($dbEdgeJson, true);
+
+		//--- Validasi data
+		if (($dbNode == null) || ($dbEdge == null)) {
+			return generate_error("Server cache data error. Please contact administrator.");
+		}
+
+		//--- Validasi input
+		if (!key_exists($idNodeStart, $dbNode) || !key_exists($idNodeGoal, $dbNode)) {
+			return generate_error("Invalid input!");
+		}
+
+		//--- Mulai algoritma A*
 		$routeAlts = []; // Data list solusi transit
-		$currentRoute = [];
-		
-		$edgeArrData = [];
-		$edgeArrCounter = 0;
-		
-		$prevLoc = ['lat' => null, 'lng' => null];
-		$prevNodeId = null;
-		
-		for ($i=$nodeCount-1; $i >= 0; $i--) {
-			
-			$edgeRouteData = null;
-			$vCurrentEdge = $finalRoute[$i][1];
-		
-			$currentNodeData = $dbNode[$finalRoute[$i][0]];
-			$verboseData .= " Iterate @".$currentNodeData['node_name']."-----------:\n";
-						
-			// Bukan node start?
-			if ($vCurrentEdge) {
-				$isShuttle = false;
-				
-				// Jalur shuttle terdiri dari lebih dari satu busur...
-				if ($vCurrentEdge >= 10000) {
-					$isShuttle = true;
-					$edgeArr = $dbEdge[$vCurrentEdge]['id_edge'];
-				} else {
-					$edgeArr = [ [$vCurrentEdge, null] ];
+		$routeWaysData = []; // Output utama (informasi transit trayek, dsb)
+
+		$openNodes = array($idNodeStart => 1); // Set OPEN
+		$visitedNodes = array(); // Set CLOSED
+
+		$cameFrom = array();
+
+		$gScore = array();
+		$gScore[$idNodeStart] = 0;
+
+		//-- Kode trayek yang tersedia pada node n
+		$availableRoute = [];
+		$availableRoute[$idNodeStart] = [];
+
+		$fScore = array();
+		$fScore[$idNodeStart] = distance(
+				$dbNode[$idNodeStart]['location_lat'],
+				$dbNode[$idNodeStart]['location_lng'],
+				$dbNode[$idNodeGoal]['location_lat'],
+				$dbNode[$idNodeGoal]['location_lng'], 'K'
+				);
+
+		$loopCount = 0;
+		while (!empty($openNodes)) {
+			//-- Ambil fScore terkecil
+			reset($openNodes);
+			$fScoreIndexCheck = key($openNodes);
+			$fScoreCheck = $fScore[$fScoreIndexCheck];
+			foreach($openNodes as $fIndex => $fItem) {
+				if ($fScore[$fIndex] < $fScoreCheck) {
+					$fScoreCheck = $fScore[$fIndex];
+					$fScoreIndexCheck = $fIndex;
 				}
+			}
+
+			$currentNodeId = $fScoreIndexCheck;
 				
-				$newEdgeDist = 0.0;
-				$newEdgeSeq = [];
-				foreach ($edgeArr as $currentIdEdge) {
-					// Ambil informasi busur...
-					$edgeData = $edgeModel->get_edge_by_id($currentIdEdge[0]);
+			//--------- Sampai di tujuan ------------------
+			if ($currentNodeId == $idNodeGoal) {
+				$fromNode = $idNodeGoal;
+				$idEdge = $cameFrom[$fromNode][1];
 					
-					if ($edgeData) {
-						//-- Polyline output
-						$pointArr = mysql_to_latlng_coords($edgeData['polyline_data']);
+				$finalRoute = array([$idNodeGoal, $idEdge]);
 					
-						$routeDir = $currentIdEdge[1];
-						if ($routeDir === null) {
-							$routeDir = ($edgeData['id_node_from'] == $prevNodeId ? 1 : -1);
-						}
-						
-						$prevNodeId = ($routeDir > 0 ? $edgeData['id_node_dest'] : $edgeData['id_node_from']);
-						$currentNodeData = $dbNode[$prevNodeId];
-						$nextLoc = array(
-								'lat' => floatval($currentNodeData['location_lat']),
-								'lng' => floatval($currentNodeData['location_lng'])
-						);
-						
-						// Arah maju, searah dengan busur
-						if ($routeDir > 0) {
-							array_unshift($pointArr, $prevLoc);
-							array_push($pointArr, $nextLoc);
-						} else { // Mundur...
-							$pointArr = array_reverse($pointArr, true);
-							array_unshift($pointArr, $prevLoc);
-							array_push($pointArr, $nextLoc);
-						}
-						
-						$edgeArrData[$edgeArrCounter] = $pointArr;
-						$edgeRouteData = array(
-								'id_edge'	=> $currentIdEdge[0],
-								'polyline'	=> encode_polyline($pointArr),
-								'start_pos'	=> $prevLoc,
-								'end_pos'	=> $nextLoc
-						);
-						
-						$shortestPathSeq[$edgeArrCounter] = array(
-								'id' => $currentNodeData['id_node'],
-								'node_name' => $currentNodeData['node_name'],
-								'node_type' => $currentNodeData['node_type'],
-								'position' => $nextLoc,
-								'edge_data' => $edgeRouteData
-						);
-						
-						$prevLoc['lat'] = floatval($currentNodeData['location_lat']);
-						$prevLoc['lng'] = floatval($currentNodeData['location_lng']);
-						
-						$newEdgeDist += $edgeData['distance'];
-						$newEdgeSeq[] = $edgeArrCounter;
-						
-						$edgeArrCounter++;
-						
-					} // End if edgeData exist
-					
-				} // End foreach if next node is exist
-				
-				// Rute shuttle selalu sesuai dengan arah busur...
-				if ($isShuttle) $routeDir = 1;
-				
-				$currentSolution = [];
-				
-				// Tidak dilalui angkot?
-				if (count($dbEdge[$vCurrentEdge]['routes']) == 0) {
-					$currentSolution[] = 0; // Jalan kaki
-				} else {
-					foreach ($dbEdge[$vCurrentEdge]['routes'] as $codePublicRoute => $itemRoute) {
-						//-- Ambil trayek yang searah saja ...
-						if (($routeDir == $itemRoute[0]) && !in_array($itemRoute[2], $currentSolution)) {
-							if (!$useAngkot && ($itemRoute[1] == 1)) continue;
-							if (!$useBrt && ($itemRoute[1] == 2)) continue;
-							
-							$currentSolution[] = $itemRoute[2];
-							//$publicRouteOut .= $itemRoute['id_route'].", ";
-						} // End if searah
-				
-					} // End foreach
-				
-					//-- Tidak ada angkot yang searah?
-					if (empty($currentSolution)) {
-						$currentSolution[] = 0; // Jalan kaki
-					}
+				while ($fromNode != $idNodeStart) {
+					$fromNode = $cameFrom[$fromNode][0];
+					$idEdge = ($fromNode == $idNodeStart ? null : $cameFrom[$fromNode][1]);
+					$finalRoute[] = [$fromNode, $idEdge];
 				}
+
+				$verboseData = "";
+				$routeWaysData = $this->_build_solution($finalRoute, $searchOpts, $dbNode, $dbEdge, $dbRoute,
+						$edgeModel, $shortestPathSeq, $verboseData);
+				break;
+			}
+
+			// Pindah dari set OPEN ke CLOSED
+			unset($openNodes[$currentNodeId]);
+			$visitedNodes[$currentNodeId] = 1;
+
+			if (!isset($gScore[$currentNodeId])) $gScore[$currentNodeId] = 9999.0;
 				
-				//$publicRouteOut .= "\n";
-				
-				// Inisiasi jika currentRoute belum ada isinya...
-				if (count($currentRoute) == 0) {
-					foreach ($currentSolution as $itemSolution) {
-						$currentRoute[] = $itemSolution;
-				
-						$routeAlts[] = [[
-								'id' => $itemSolution,
-								'dist' => 0.0,
-								'seq' => []
-						]];
-					}
+			foreach ($dbNode[$currentNodeId]['neighbors'] as $neighborNodeId => $neighborNodeData) {
+				// Abaikan shuttle BRT jika opsi hindari BRT berstatus aktif...
+				if (!$useBrt && ($neighborNodeData[1] >= 10000)) {
+					continue;
 				}
+
+				if (key_exists($neighborNodeId, $visitedNodes)) {
+					continue;
+				}
+
+				//-- List trayek yang melalui current edge...
+				$direction = ($dbEdge[$neighborNodeData[1]]['id_node_dest'] == $neighborNodeId ? 1 : -1);
+
+				$tmpRouteList = [];
+				if (!isset($availableRoute[$neighborNodeId])) $availableRoute[$neighborNodeId] = [];
 				
-				//-- Ambil rute yang masih sejalur...
-				$intersectRoute = array_intersect($currentRoute, $currentSolution);
-				
-				$newRouteSolution = [];
-				
-				//-- Untuk setiap trayek yang ditemukan melalui busur
-				foreach ($currentSolution as $itemSolution) {
-					$verboseData .= " -------- Iterate itemSolution: ".$itemSolution."\n";
-					//-- Merupakan trayek baru, yang tadinya tidak sejalur..
-					if (!in_array($itemSolution, $intersectRoute)) {
-						//-- Diabaikan, kecuali sedang tidak ada angkot yang sejalur...
-						if (empty($intersectRoute)) {
-							$verboseData .= " Empty intersectRoute\n";
-							//-- Clone setiap solusi...
-							foreach ($routeAlts as $idxAlt => $itemAlt) {
-								$newIdx = count($newRouteSolution);
-				
-								//-- Copy
-								$newRouteSolution[$newIdx] = [];
-								foreach ($itemAlt as $altRouteItem) {
-									$edgeSeq = [];
-									foreach ($altRouteItem['seq'] as $seqItem) $edgeSeq[] = $seqItem;
-				
-									$newRouteSolution[$newIdx][] = [
-											'id' => $altRouteItem['id'],
-											'dist' => $altRouteItem['dist'],
-											'seq' => $edgeSeq
-									];
-								}
-				
-								//-- Append trayek baru...
-								$tmpEdgeSeq = [];
-								foreach ($newEdgeSeq as $itemSeq) $tmpEdgeSeq[] = $itemSeq;
-								$newRouteSolution[$newIdx][] = [
-										'id' => $itemSolution,
-										'dist' => $newEdgeDist,
-										'seq' => $tmpEdgeSeq
-								];
-							}
-						} else {
-							$verboseData .= " Ignored: ".$itemSolution."\n";
-							//-- Abaikan solusi
-						}
-				
-					} else {
-						//-- Merupakan trayek yang masih sejalur, maka tambah jarak tempuh
-						foreach ($routeAlts as $idxAlt => $itemAlt) {
-							$lastIdx = count($itemAlt)-1;
-							if ($routeAlts[$idxAlt][$lastIdx]['id'] == $itemSolution) {
-								$routeAlts[$idxAlt][$lastIdx]['dist'] += $newEdgeDist;
-								foreach ($newEdgeSeq as $itemSeq)
-									$routeAlts[$idxAlt][$lastIdx]['seq'][] = $itemSeq;
-							}
-								
-						} // End foreach alternatives
-					}
-				} // End foreach
-				
-				//-- Untuk setiap trayek lama yang 'miss'
-				foreach ($currentRoute as $itemRoute) {
-					if (!in_array($itemRoute, $intersectRoute)) {
-						foreach ($routeAlts as $idxAlt => $itemAlt) {
-							$lastIdx = count($itemAlt)-1;
-								
-							//-- Solusi yang berujung trayek miss, akan dihapus dari 'result'
-							if ($routeAlts[$idxAlt][$lastIdx]['id'] == $itemRoute) {
-								unset($routeAlts[$idxAlt]);
-							} // End if
-						} // End foreach alts
+				//-- Cari trayek untuk mencapai neighbor node
+				foreach ($dbEdge[$neighborNodeData[1]]['routes'] as $codePublicRoute => $routeItem) {
+					if ($routeItem[0] == $direction) {
+						if (!$useAngkot && ($routeItem[1] == 1)) continue;
+						if (!$useBrt && ($routeItem[1] == 2)) continue;
+						
+						$tmpRouteList[] = $codePublicRoute;
 					} // End if
 				} // End foreach
-				
-				//-- Append to routeAlt
-				foreach ($newRouteSolution as $itemNewSolution) {
-					$newIdx = count($routeAlts);
-						
-					$routeAlts[$newIdx] = [];
-					foreach ($itemNewSolution as $altRouteItem) {
-						$edgeSeq = [];
-						foreach ($altRouteItem['seq'] as $seqItem) $edgeSeq[] = $seqItem;
-				
-						$routeAlts[$newIdx][] = [
-								'id' => $altRouteItem['id'],
-								'dist' => $altRouteItem['dist'],
-								'seq' => $edgeSeq
-						];
-					} // End foreach itemSolution
-				
-				} // End foreach newRouteSolution
-				
-				//-- Update current route
-				$currentRoute = [];
-				foreach ($routeAlts as $altIdx => $itemAlt) {
-					//-- Ambil trayek terakhir yang dinaiki..
-					$idRoute = end($itemAlt)['id'];
-					if (!in_array($idRoute, $currentRoute)) $currentRoute[] = $idRoute;
+
+				//-- Bandingkan angkot sekarang dengan angkot node parent...
+				$bobotGantiAngkot = 0;
+				$intersects = [];
+				if ($currentNodeId != $idNodeStart) { // Current node bukan node start?
+					//-- Ambil angkot yang juga melewati node parent
+					$intersects = array_intersect($availableRoute[$currentNodeId], $tmpRouteList);
+					
+					//-- Mengutamakan jalur yang dilalui angkot yang sama
+					//   (meminimalkan ganti angkot)
+					if (empty($intersects)) {
+						$bobotGantiAngkot = 1;
+					}
 				}
-			} else { // If is starting node
-				$shortestPathSeq[$edgeArrCounter] = array(
-						'id' => $currentNodeData['id_node'],
-						'node_name' => $currentNodeData['node_name'],
-						'node_type' => $currentNodeData['node_type'],
-						'position' => $nextLoc,
-						'edge_data' => $edgeRouteData
-				);
+			
+				//-- Meminimalkan mengunjungi jalan yang tidak dilalui angkot...
+				$bobotJalanKaki = 0;
+				if (empty($tmpRouteList)) {
+					$bobotJalanKaki = 1;
+				}
 				
-				$prevLoc['lat'] = floatval($currentNodeData['location_lat']);
-				$prevLoc['lng'] = floatval($currentNodeData['location_lng']);
-				$prevNodeId = $currentNodeData['id_node'];
+				//-- Faktor pengali p(n)
+				$factor = 1 + $bobotJalanKaki + $bobotGantiAngkot;
 				
-				$edgeArrCounter++;
+				if (!isset($gScore[$neighborNodeId])) $gScore[$neighborNodeId] = 9999.0;
+				$tentativegScore = $gScore[$currentNodeId] + ($neighborNodeData[0]);
+
+				// Jika ada di set OPEN dan cost ternyata cost kurang dari g(n), maka evaluasi ulang node n
+				if ((key_exists($neighborNodeId, $openNodes)) && ($tentativegScore < $gScore[$neighborNodeId])) {
+					unset($openNodes[$neighborNodeId]);
+				}
+
+				if (!key_exists($neighborNodeId, $openNodes) && !key_exists($$neighborNodeId, $visitedNodes)) {
+					$openNodes[$neighborNodeId] = 1; // Neighbor dimasukkan ke set OPEN
+
+					$cameFrom[$neighborNodeId] = array($currentNodeId, $neighborNodeData[1]);
+					
+					//-- h(n) adalah jarak haversine node n ke node goal
+					$hScore = distance(
+							$dbNode[$neighborNodeId]['location_lat'],
+							$dbNode[$neighborNodeId]['location_lng'],
+							$dbNode[$idNodeGoal]['location_lat'],
+							$dbNode[$idNodeGoal]['location_lng'], 'K'
+							);
+					$gScore[$neighborNodeId] = $tentativegScore;
+					$fScore[$neighborNodeId] = $gScore[$currentNodeId] +
+						($gScore[$neighborNodeId] * $factor * $factor) + ($hScore * $factor);
+					
+					//-- Simpan angkot pada node
+					foreach ($tmpRouteList as $codePublicRoute) {
+						$availableRoute[$neighborNodeId][] = $codePublicRoute;
+					}
+				}
+
+			} // End foreach neighbor
+			$loopCount++;
+		}
+
+		$timeEnd = microtime(true);
+
+		$memoryPeak = memory_get_peak_usage();
+		//dividing with 60 will give the execution time in minutes other wise seconds
+		$execution_time = round(($timeEnd - $this->_timeStart),4);
+
+		$benchmarkResult = "Execution time: {$execution_time} seconds. Memory peak: {$memoryPeak} bytes.";
+		$responseData = array(
+				'routeways' => $routeWaysData,
+				'benchmark' => $benchmarkResult,
+		);
+		
+		$responseData['verbose'] = $verboseData;
+
+		$jsonResponse = array(
+				'status' => 'ok',
+				'data' => $responseData
+		);
+
+		return $jsonResponse;
+	}
+	
+/**
+ * @param array $finalRoute Rute hasil pencarian
+ * @param array $searchOpts Opsi pencarian
+ * @param array $dbNode Database node
+ * @param array $dbEdge Database edge
+ * @param array $dbRoute Database route/trayek
+ * @param EdgeModel $edgeModel
+ * @param array $shortestPathSeq Output informasi verbose
+ * @param string $verboseData Output informasi verbose
+ * @return Object Array untuk dikeluarkan sebagai output
+ */
+private function _build_solution($finalRoute, $searchOpts, $dbNode, $dbEdge, $dbRoute, $edgeModel, &$shortestPathSeq, &$verboseData) {
+	//--- Default values...
+	$useAngkot = $useBrt = true;
+	
+	if (isset($searchOpts['angkot']))	$useAngkot = $searchOpts['angkot'];
+	if (isset($searchOpts['brt']))		$useBrt = $searchOpts['brt'];
+	
+	$nodeCount = count($finalRoute);
+	$counter = 1;
+	$verboseData .= "------------------ Search finished -----\n";
+	$verboseData .= " Route result:\n";
+		
+	//$publicRouteOut = "== ROUTE INFO ==\n";
+	$routeDir = 0;
+	$routeAlts = []; // Data list solusi transit
+	$currentRoute = [];
+	
+	$edgeArrData = [];
+	$edgeArrCounter = 0;
+	
+	$prevLoc = ['lat' => null, 'lng' => null];
+	$prevNodeId = null;
+	
+	for ($i=$nodeCount-1; $i >= 0; $i--) {
+		
+		$edgeRouteData = null;
+		$vCurrentEdge = $finalRoute[$i][1];
+	
+		$currentNodeData = $dbNode[$finalRoute[$i][0]];
+		$verboseData .= " Iterate @".$currentNodeData['node_name']."-----------:\n";
+					
+		// Bukan node start?
+		if ($vCurrentEdge) {
+			$isShuttle = false;
+			
+			// Jalur shuttle terdiri dari lebih dari satu busur...
+			if ($vCurrentEdge >= 10000) {
+				$isShuttle = true;
+				$edgeArr = $dbEdge[$vCurrentEdge]['id_edge'];
+			} else {
+				$edgeArr = [ [$vCurrentEdge, null] ];
 			}
-		
-			$verboseData .= "   ".$counter.". ".$dbNode[$finalRoute[$i][0]]['node_name']."\n";
-			$counter++; // Increment node counter
-		} // End for (node counter)
 			
-		$verboseData .= "----------------------------------------\n";
-		
-		//---- Build transit information
-		$routeWaysData = [];
-		$publicRouteOut .= "\n-  ROUTE -----\n\n"; // . print_r($routeAlts, true);
-		
-		$altCounter = 1;
-		foreach ($routeAlts as $itemAlt) {
-			$publicRouteOut .= "o Cara ".$altCounter.":\n";
-		
-			$prevRouteId = null;
-			
-			$distTotal = 0.0;
-			$walkDistTotal = 0.0;
-			$feeTotal = 0;
-			$stepsData = [];
-			
-			$nodeCounter = 1;
-			$lastTransitNode = 0;
-			foreach ($itemAlt as $transitItem) {
-				$lastSeq = count($transitItem['seq']) - 1;
+			$newEdgeDist = 0.0;
+			$newEdgeSeq = [];
+			foreach ($edgeArr as $currentIdEdge) {
+				// Ambil informasi busur...
+				$edgeData = $edgeModel->get_edge_by_id($currentIdEdge[0]);
 				
-				$stepIcon = _base_url($this->_path_routeicon.'/'.$this->_def_routeicon.'?v='.APPVER);
-				$stepType = 'UNKNOWN';
-				$htmlText = '';
+				if ($edgeData) {
+					//-- Polyline output
+					$pointArr = mysql_to_latlng_coords($edgeData['polyline_data']);
+				
+					$routeDir = $currentIdEdge[1];
+					if ($routeDir === null) {
+						$routeDir = ($edgeData['id_node_from'] == $prevNodeId ? 1 : -1);
+					}
+					
+					$prevNodeId = ($routeDir > 0 ? $edgeData['id_node_dest'] : $edgeData['id_node_from']);
+					$currentNodeData = $dbNode[$prevNodeId];
+					$nextLoc = array(
+							'lat' => floatval($currentNodeData['location_lat']),
+							'lng' => floatval($currentNodeData['location_lng'])
+					);
+					
+					// Arah maju, searah dengan busur
+					if ($routeDir > 0) {
+						array_unshift($pointArr, $prevLoc);
+						array_push($pointArr, $nextLoc);
+					} else { // Mundur...
+						$pointArr = array_reverse($pointArr, true);
+						array_unshift($pointArr, $prevLoc);
+						array_push($pointArr, $nextLoc);
+					}
+					
+					$edgeArrData[$edgeArrCounter] = $pointArr;
+					$edgeRouteData = array(
+							'id_edge'	=> $currentIdEdge[0],
+							'polyline'	=> encode_polyline($pointArr),
+							'start_pos'	=> $prevLoc,
+							'end_pos'	=> $nextLoc
+					);
+					
+					$shortestPathSeq[$edgeArrCounter] = array(
+							'id' => $currentNodeData['id_node'],
+							'node_name' => $currentNodeData['node_name'],
+							'node_type' => $currentNodeData['node_type'],
+							'position' => $nextLoc,
+							'edge_data' => $edgeRouteData
+					);
+					
+					$prevLoc['lat'] = floatval($currentNodeData['location_lat']);
+					$prevLoc['lng'] = floatval($currentNodeData['location_lng']);
+					
+					$newEdgeDist += $edgeData['distance'];
+					$newEdgeSeq[] = $edgeArrCounter;
+					
+					$edgeArrCounter++;
+					
+				} // End if edgeData exist
+				
+			} // End foreach if next node is exist
+			
+			// Rute shuttle selalu sesuai dengan arah busur...
+			if ($isShuttle) $routeDir = 1;
+			
+			$currentSolution = [];
+			
+			// Tidak dilalui angkot?
+			if (count($dbEdge[$vCurrentEdge]['routes']) == 0) {
+				$currentSolution[0] = null; // Jalan kaki
+			} else {
+				foreach ($dbEdge[$vCurrentEdge]['routes'] as $codePublicRoute => $itemRoute) {
+					//-- Ambil trayek yang searah saja ...
+					if (($routeDir == $itemRoute[0]) && !in_array($codePublicRoute, $currentSolution)) {
+						if (!$useAngkot && ($itemRoute[1] == 1)) continue;
+						if (!$useBrt && ($itemRoute[1] == 2)) continue;
+						
+						$currentSolution[$itemRoute[2]] = $codePublicRoute;
+						//$publicRouteOut .= $itemRoute['id_route'].", ";
+					} // End if searah
+			
+				} // End foreach
+			
+				//-- Tidak ada angkot yang searah?
+				if (empty($currentSolution)) {
+					$currentSolution[0] = null; // Jalan kaki
+				}
+			}
+			
+			//$publicRouteOut .= "\n";
+			
+			// Inisiasi jika currentRoute belum ada isinya...
+			if (count($currentRoute) == 0) {
+				foreach ($currentSolution as $keySolution => $itemSolution) {
+					$currentRoute[] = $itemSolution;
+			
+					$routeAlts[] = [[
+							'id' => $keySolution,
+							'code' => $itemSolution,
+							'dist' => 0.0,
+							'seq' => []
+					]];
+				}
+			}
+			
+			//-- Ambil rute yang masih sejalur...
+			$intersectRoute = array_intersect($currentRoute, $currentSolution);
+			
+			$newRouteSolution = [];
+			
+			//-- Untuk setiap trayek yang ditemukan melalui busur
+			foreach ($currentSolution as $keySolution => $itemSolution) {
+				$verboseData .= " -------- Iterate itemSolution: ".$itemSolution."\n";
+				//-- Merupakan trayek baru, yang tadinya tidak sejalur..
+				if (!in_array($itemSolution, $intersectRoute)) {
+					//-- Diabaikan, kecuali sedang tidak ada angkot yang sejalur...
+					if (empty($intersectRoute)) {
+						$verboseData .= " Empty intersectRoute\n";
+						//-- Clone setiap solusi...
+						foreach ($routeAlts as $idxAlt => $itemAlt) {
+							$newIdx = count($newRouteSolution);
+			
+							//-- Copy
+							$newRouteSolution[$newIdx] = [];
+							foreach ($itemAlt as $altRouteItem) {
+								$edgeSeq = [];
+								foreach ($altRouteItem['seq'] as $seqItem) $edgeSeq[] = $seqItem;
+			
+								$newRouteSolution[$newIdx][] = [
+										'id' => $altRouteItem['id'],
+										'dist' => $altRouteItem['dist'],
+										'code' => $altRouteItem['code'],
+										'seq' => $edgeSeq
+								];
+							}
+			
+							//-- Append trayek baru...
+							$tmpEdgeSeq = [];
+							foreach ($newEdgeSeq as $itemSeq) $tmpEdgeSeq[] = $itemSeq;
+							$newRouteSolution[$newIdx][] = [
+									'id' => $keySolution,
+									'code' => $itemSolution,
+									'dist' => $newEdgeDist,
+									'seq' => $tmpEdgeSeq
+							];
+						}
+					} else {
+						$verboseData .= " Ignored: ".$itemSolution."(".$keySolution.")\n";
+						//-- Abaikan solusi
+					}
+			
+				} else {
+					//-- Merupakan trayek yang masih sejalur, maka tambah jarak tempuh
+					foreach ($routeAlts as $idxAlt => $itemAlt) {
+						$lastIdx = count($itemAlt)-1;
+						if ($routeAlts[$idxAlt][$lastIdx]['code'] == $itemSolution) {
+							$routeAlts[$idxAlt][$lastIdx]['dist'] += $newEdgeDist;
+							foreach ($newEdgeSeq as $itemSeq)
+								$routeAlts[$idxAlt][$lastIdx]['seq'][] = $itemSeq;
+						}
+							
+					} // End foreach alternatives
+				}
+			} // End foreach
+			
+			//-- Untuk setiap trayek lama yang 'miss'
+			foreach ($currentRoute as $itemRoute) {
+				if (!in_array($itemRoute, $intersectRoute)) {
+					foreach ($routeAlts as $idxAlt => $itemAlt) {
+						$lastIdx = count($itemAlt)-1;
+							
+						//-- Solusi yang berujung trayek miss, akan dihapus dari 'result'
+						if ($routeAlts[$idxAlt][$lastIdx]['code'] == $itemRoute) {
+							unset($routeAlts[$idxAlt]);
+						} // End if
+					} // End foreach alts
+				} // End if
+			} // End foreach
+			
+			//-- Append to routeAlt
+			foreach ($newRouteSolution as $itemNewSolution) {
+				$newIdx = count($routeAlts);
+					
+				$routeAlts[$newIdx] = [];
+				foreach ($itemNewSolution as $altRouteItem) {
+					$edgeSeq = [];
+					foreach ($altRouteItem['seq'] as $seqItem) $edgeSeq[] = $seqItem;
+			
+					$routeAlts[$newIdx][] = [
+							'id' => $altRouteItem['id'],
+							'code' => $altRouteItem['code'],
+							'dist' => $altRouteItem['dist'],
+							'seq' => $edgeSeq
+					];
+				} // End foreach itemSolution
+			
+			} // End foreach newRouteSolution
+			
+			//-- Update current route
+			$currentRoute = [];
+			foreach ($routeAlts as $altIdx => $itemAlt) {
+				//-- Ambil trayek terakhir yang dinaiki..
+				$routeCode = end($itemAlt)['code'];
+				if (!in_array($routeCode, $currentRoute)) $currentRoute[] = $routeCode;
+			}
+		} else { // If is starting node
+			$shortestPathSeq[$edgeArrCounter] = array(
+					'id' => $currentNodeData['id_node'],
+					'node_name' => $currentNodeData['node_name'],
+					'node_type' => $currentNodeData['node_type'],
+					'position' => $nextLoc,
+					'edge_data' => $edgeRouteData
+			);
+			
+			$prevLoc['lat'] = floatval($currentNodeData['location_lat']);
+			$prevLoc['lng'] = floatval($currentNodeData['location_lng']);
+			$prevNodeId = $currentNodeData['id_node'];
+			
+			$edgeArrCounter++;
+		}
+	
+		$verboseData .= "   ".$counter.". ".$dbNode[$finalRoute[$i][0]]['node_name']."\n";
+		$counter++; // Increment node counter
+	} // End for (node counter)
+		
+	$verboseData .= "----------------------------------------\n";
+	
+	//---- Build transit information
+	$routeWaysData = [];
+	$publicRouteOut .= "\n-  ROUTE -----\n\n"; // . print_r($routeAlts, true);
+	
+	$altCounter = 1;
+	foreach ($routeAlts as $itemAlt) {
+		$publicRouteOut .= "o Cara ".$altCounter.":\n";
+	
+		$prevRouteId = null;
+		
+		$distTotal = 0.0;
+		$walkDistTotal = 0.0;
+		$feeTotal = 0;
+		$stepsData = [];
+		
+		$nodeCounter = 1;
+		$lastTransitNode = 0;
+		foreach ($itemAlt as $transitItem) {
+			$lastSeq = count($transitItem['seq']) - 1;
+			
+			$stepIcon = _base_url($this->_path_routeicon.'/'.$this->_def_routeicon.'?v='.APPVER);
+			$stepType = 'UNKNOWN';
+			$htmlText = '';
+			
+			$transitFee = 0;
+			if ($transitItem['id'] == 0) { // Jalan kaki
+				$stepType = 'WALK';
+				$stepIcon = _base_url('/assets/images/walk-icon-200.png?v='.APPVER);
+				
+				$walkLengthLabel = $transitItem['dist'] . " km";
+				if ($transitItem['dist'] < 1.0) {
+					$walkLengthMeter = $transitItem['dist'] * 1000;
+					$walkLengthLabel = $walkLengthMeter . " m";
+				}
+				
+				if ($prevRouteId !== null) {
+					//-- Jika sebelumnya sudah naik BRT, maka tidak perlu bayar lagi...
+					if ($dbRoute[$prevRouteId]['vehicle_type'] == 2) {
+						$htmlText = "Turun di <b>".$shortestPathSeq[$lastTransitNode]['node_name']."</b>, ".
+							"kemudian jalan kaki sepanjang <b>".$walkLengthLabel."</b>";
+					} else {
+						$htmlText = "Jalan kaki sepanjang <b>".$walkLengthLabel."</b>";
+					}
+				} else {
+					$htmlText = "Jalan kaki sepanjang <b>".$walkLengthLabel."</b>";
+				}
+				
+				$publicRouteOut .= "-- Jalan kaki ".$walkLengthLabel;
+				$walkDistTotal += $transitItem['dist'];
+			} else {
+				if (!empty($dbRoute[$transitItem['id']]['vehicle_icon'])) {
+					$stepIcon = _base_url($this->_path_routeicon.'/'.
+							$dbRoute[$transitItem['id']]['vehicle_icon']."?v=".APPVER);
+				}
 				
 				$transitFee = 0;
-				if ($transitItem['id'] == 0) { // Jalan kaki
-					$stepType = 'WALK';
-					$stepIcon = _base_url('/assets/images/walk-icon-200.png?v='.APPVER);
+				if ($dbRoute[$transitItem['id']]['vehicle_type'] == 2) {
+					$stepType = 'SHUTTLEBUS';
+					$transitFee = 3500; // BRT jauh dekat, Rp. 3500
 					
-					$walkLengthLabel = $transitItem['dist'] . " km";
-					if ($transitItem['dist'] < 1.0) {
-						$walkLengthMeter = $transitItem['dist'] * 1000;
-						$walkLengthLabel = $walkLengthMeter . " m";
-					}
+					$htmlText = "Naik BRT ".$dbRoute[$transitItem['id']]['route_code'].
+						" (<b>".$dbRoute[$transitItem['id']]['route_name']."</b>) #".$transitItem['id'].
+						" dari <b>".$shortestPathSeq[$lastTransitNode]['node_name']."</b>".
+						" sepanjang ".$transitItem['dist']." km. (Rp. ".$transitFee.")";
 					
 					if ($prevRouteId !== null) {
 						//-- Jika sebelumnya sudah naik BRT, maka tidak perlu bayar lagi...
 						if ($dbRoute[$prevRouteId]['vehicle_type'] == 2) {
-							$htmlText = "Turun di <b>".$shortestPathSeq[$lastTransitNode]['node_name']."</b>, ".
-								"kemudian jalan kaki sepanjang <b>".$walkLengthLabel."</b>";
-						} else {
-							$htmlText = "Jalan kaki sepanjang <b>".$walkLengthLabel."</b>";
-						}
-					} else {
-						$htmlText = "Jalan kaki sepanjang <b>".$walkLengthLabel."</b>";
-					}
-					
-					$publicRouteOut .= "-- Jalan kaki ".$walkLengthLabel;
-					$walkDistTotal += $transitItem['dist'];
-				} else {
-					if (!empty($dbRoute[$transitItem['id']]['vehicle_icon'])) {
-						$stepIcon = _base_url($this->_path_routeicon.'/'.
-								$dbRoute[$transitItem['id']]['vehicle_icon']."?v=".APPVER);
-					}
-					
-					$transitFee = 0;
-					if ($dbRoute[$transitItem['id']]['vehicle_type'] == 2) {
-						$stepType = 'SHUTTLEBUS';
-						$transitFee = 3500; // BRT jauh dekat, Rp. 3500
-						
-						$htmlText = "Naik BRT ".$dbRoute[$transitItem['id']]['route_code'].
-							" (<b>".$dbRoute[$transitItem['id']]['route_name']."</b>) #".$transitItem['id'].
-							" dari <b>".$shortestPathSeq[$lastTransitNode]['node_name']."</b>".
-							" sepanjang ".$transitItem['dist']." km. (Rp. ".$transitFee.")";
-						
-						if ($prevRouteId !== null) {
-							//-- Jika sebelumnya sudah naik BRT, maka tidak perlu bayar lagi...
-							if ($dbRoute[$prevRouteId]['vehicle_type'] == 2) {
-								$transitFee = 0;
-								
-								//-- Masih di koridor yang sama?
-								if ($dbRoute[$prevRouteId]['route_code'] == $dbRoute[$transitItem['id']]['route_code']) {
-									$htmlText = "Tetap di armada BRT ".$dbRoute[$transitItem['id']]['route_code'].
-										" (".$dbRoute[$prevRouteId]['route_name'].") ".
-										" lanjutkan perjalanan sepanjang ".$transitItem['dist']." km.";
-								} else {
-									// Tidak bayar jika transit di shelter transit...
-									if ($shortestPathSeq[$lastTransitNode]['node_type'] == 2) {
-										$htmlText = sprintf("Transit di <b>%s</b>, pindah BRT %s (<b>%s</b>)",
-												$shortestPathSeq[$lastTransitNode]['node_name'],
-												$dbRoute[$transitItem['id']]['route_code'],
-												$dbRoute[$transitItem['id']]['route_name']);
-									} else {
-										$transitFee = 3500;
-										$htmlText = sprintf("Turun di <b>%s</b>, naik BRT %s (<b>%s</b>) (Rp. %d)",
-												$shortestPathSeq[$lastTransitNode]['node_name'],
-												$dbRoute[$transitItem['id']]['route_code'],
-												$dbRoute[$transitItem['id']]['route_name'],
-												$transitFee);
-									}
-									
-									//$htmlText = "Transit di shelter ".$shortestPathSeq[$lastTransitNode]['node_name'].
-									//	" pindah ke BRT ".$dbRoute[$transitItem['id']]['route_code'].
-									//	" (".$dbRoute[$transitItem['id']]['route_name'].") #".$transitItem['id'].
-									//	" sepanjang ".$transitItem['dist']." km.";
-								}
-							}
-						}
-						
-					} else {
-						$stepType = 'CITYTRANSPORT';
-						$transitFee = 3000; // 8 km pertama Rp. 3000
-						
-						if ($transitItem['dist'] > 8.0) {
-							// Pembulatan 500
-							$transitFee += ceil((ceil($transitItem['dist'] - 8.0) * 150) / 500) * 500;
-						}
-						if ($transitFee > 6000) $transitFee = 6000; // Paling tinggi 6000
-						
-						$htmlText = "Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
-							" (<b>".$dbRoute[$transitItem['id']]['route_name']."</b>) #".$transitItem['id'].
-							" sepanjang ".$transitItem['dist']." km. (Rp. ".$transitFee.")";
-					}
-					
-					$publicRouteOut .= "-- Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
-					" (".$dbRoute[$transitItem['id']]['route_name'].") sepanjang ".$transitItem['dist'].
-					" km. (Rp. ".$transitFee.").\n";
-					
-				}
-				$feeTotal += $transitFee;
-				$distTotal += floatval($transitItem['dist']);
-		
-				//-- Genereate edge polyline...
-				$startLoc = null; $endLoc = null;
-				$polyArr = [];
-				
-				if ($lastSeq >= 0) {
-					$startLoc = $shortestPathSeq[$transitItem['seq'][0]]['edge_data']['start_pos'];
-					$endLoc = $shortestPathSeq[$transitItem['seq'][$lastSeq]]['edge_data']['end_pos'];
-					foreach ($transitItem['seq'] as $seqIdx => $edgeSeqItem) {
-						$lastPolyNodeIdx = count($edgeArrData[$edgeSeqItem])-1;
-						foreach ($edgeArrData[$edgeSeqItem] as $polyNodeIdx => $posItem) {
-							// Node terakhir busur diappend hanya pada busur terakhir
-							//  Skip jika bukan merupakan busur terakhir
-							if (($polyNodeIdx == $lastPolyNodeIdx) && ($seqIdx != $lastSeq)) continue;
+							$transitFee = 0;
 							
-							$polyArr[] = ['lat' => $posItem['lat'], 'lng' => $posItem['lng']];
-						}
-					}
+							//-- Masih di koridor yang sama?
+							if ($dbRoute[$prevRouteId]['route_code'] == $dbRoute[$transitItem['id']]['route_code']) {
+								$htmlText = "Tetap di armada BRT ".$dbRoute[$transitItem['id']]['route_code'].
+									" (".$dbRoute[$prevRouteId]['route_name'].") ".
+									" lanjutkan perjalanan sepanjang ".$transitItem['dist']." km.";
+							} else {
+								// Tidak bayar jika transit di shelter transit...
+								if ($shortestPathSeq[$lastTransitNode]['node_type'] == 2) {
+									$htmlText = sprintf("Transit di <b>%s</b>, pindah BRT %s (<b>%s</b>)",
+											$shortestPathSeq[$lastTransitNode]['node_name'],
+											$dbRoute[$transitItem['id']]['route_code'],
+											$dbRoute[$transitItem['id']]['route_name']);
+								} else {
+									$transitFee = 3500;
+									$htmlText = sprintf("Turun di <b>%s</b>, naik BRT %s (<b>%s</b>) (Rp. %d)",
+											$shortestPathSeq[$lastTransitNode]['node_name'],
+											$dbRoute[$transitItem['id']]['route_code'],
+											$dbRoute[$transitItem['id']]['route_name'],
+											$transitFee);
+								}
+								
+								//$htmlText = "Transit di shelter ".$shortestPathSeq[$lastTransitNode]['node_name'].
+								//	" pindah ke BRT ".$dbRoute[$transitItem['id']]['route_code'].
+								//	" (".$dbRoute[$transitItem['id']]['route_name'].") #".$transitItem['id'].
+								//	" sepanjang ".$transitItem['dist']." km.";
+							} // end if same corridor
+						} // end if prev is BRT
+					} // end if prev is not null
 					
-					$lastTransitNode = $transitItem['seq'][$lastSeq];
+				} else {
+					$stepType = 'CITYTRANSPORT';
+					$transitFee = 3000; // 8 km pertama Rp. 3000
+					
+					if ($transitItem['dist'] > 8.0) {
+						// Pembulatan 500
+						$transitFee += ceil((ceil($transitItem['dist'] - 8.0) * 150) / 500) * 500;
+					}
+					if ($transitFee > 6000) $transitFee = 6000; // Paling tinggi 6000
+					
+					$htmlText = "Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
+						" (<b>".$dbRoute[$transitItem['id']]['route_name']."</b>) #".$transitItem['id'].
+						" sepanjang ".$transitItem['dist']." km. (Rp. ".$transitFee.")";
 				}
 				
-				$stepsData[] = [
-						'html_instruction' => $htmlText,
-						'type' => $stepType,
-						'icon' => $stepIcon,
-						'start_location' => $startLoc,
-						'end_location' => $endLoc,
-						'polyline' => encode_polyline($polyArr),
-						'distance' => floatval($transitItem['dist']),
-						'cost' => intval($transitFee),
-						//'debug' => [
-						//	'seq' => $transitItem['seq']
-						//]
-				];
+				$publicRouteOut .= "-- Naik angkot kode ".$dbRoute[$transitItem['id']]['route_code'].
+				" (".$dbRoute[$transitItem['id']]['route_name'].") sepanjang ".$transitItem['dist'].
+				" km. (Rp. ".$transitFee.").\n";
 				
+			} // end if walking
+			$feeTotal += $transitFee;
+			$distTotal += floatval($transitItem['dist']);
+	
+			//-- Genereate edge polyline...
+			$startLoc = null; $endLoc = null;
+			$polyArr = [];
+			
+			if ($lastSeq >= 0) {
+				$startLoc = $shortestPathSeq[$transitItem['seq'][0]]['edge_data']['start_pos'];
+				$endLoc = $shortestPathSeq[$transitItem['seq'][$lastSeq]]['edge_data']['end_pos'];
+				foreach ($transitItem['seq'] as $seqIdx => $edgeSeqItem) {
+					$lastPolyNodeIdx = count($edgeArrData[$edgeSeqItem])-1;
+					foreach ($edgeArrData[$edgeSeqItem] as $polyNodeIdx => $posItem) {
+						// Node terakhir busur diappend hanya pada busur terakhir
+						//  Skip jika bukan merupakan busur terakhir
+						if (($polyNodeIdx == $lastPolyNodeIdx) && ($seqIdx != $lastSeq)) continue;
+						
+						$polyArr[] = ['lat' => $posItem['lat'], 'lng' => $posItem['lng']];
+					}
+				}
 				
-				//-- Update lasts
-				$prevRouteId = $transitItem['id'];
-				
-				//-- Increment counters
-				$nodeCounter++;
+				$lastTransitNode = $transitItem['seq'][$lastSeq];
 			}
-			$publicRouteOut .= "Biaya: Rp. ".$feeTotal."\n\n";
-			$altCounter++;
-				
-			$routeWaysData[] = [
-					'est_length' => $distTotal,
-					'walk_length' => $walkDistTotal,
-					'est_cost' => $feeTotal,
-					'steps' => $stepsData
+			
+			$stepsData[] = [
+					'html_instruction' => $htmlText,
+					'type' => $stepType,
+					'icon' => $stepIcon,
+					'start_location' => $startLoc,
+					'end_location' => $endLoc,
+					'polyline' => encode_polyline($polyArr),
+					'distance' => floatval($transitItem['dist']),
+					'cost' => intval($transitFee),
+					//'debug' => [
+					//	'seq' => $transitItem['seq']
+					//]
 			];
+			
+			
+			//-- Update lasts
+			$prevRouteId = $transitItem['id'];
+			
+			//-- Increment counters
+			$nodeCounter++;
 		}
-		
-		return $routeWaysData;
+		$publicRouteOut .= "Biaya: Rp. ".$feeTotal."\n\n";
+		$altCounter++;
+			
+		$routeWaysData[] = [
+				'est_length' => $distTotal,
+				'walk_length' => $walkDistTotal,
+				'est_cost' => $feeTotal,
+				'steps' => $stepsData
+		];
 	}
+	
+	return $routeWaysData;
+}
 }

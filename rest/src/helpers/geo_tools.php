@@ -127,9 +127,19 @@
 	
 	/**
 	 * Hitung jarak menggunakan fungsi haversine
-	 * 
+	 *
 	 * @param char $unit K=kilometer, M=mil
 	 * @return float jarak dalam satuan
+	 */
+	
+	/**
+	 * Hitung jarak menggunakan fungsi haversine
+	 * 
+	 * @param double $lat1 Posisi latitude titik 1
+	 * @param double $lon1 Posisi longitude titik 1
+	 * @param double $lat2 Posisi latitude titik 2
+	 * @param double $lon2 Posisi longitude titik 2
+	 * @return double Jarak antar titik dalam satuan kilometer
 	 */
 	function distance($lat1, $lon1, $lat2, $lon2, $unit) {
 		$radiusOfEarth = 6371; // Earth's radius in kilometers.
